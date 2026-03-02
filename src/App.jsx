@@ -73,8 +73,61 @@ const GlobalStyles = ({ settings }) => {
   );
 };
 
-const INITIAL_PRODUCT_CATEGORIES = ['Retail Products'];
-const INITIAL_PRODUCTS = [];
+const INITIAL_PRODUCT_CATEGORIES = [
+  "🥤 Mixers & Refreshers",
+  "🍺 Premium Beers (500 ml)",
+  "🍸 Vodka",
+  "🦌 Herbal Liqueur",
+  "🥃 Premium Whisky",
+  "🍹 Signature Cocktails"
+];
+
+const INITIAL_PRODUCTS = [
+  // Mixers & Refreshers
+  { id: 9001, name: 'Soda', price: 29, cat: "🥤 Mixers & Refreshers", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9002, name: 'Sprite', price: 39, cat: "🥤 Mixers & Refreshers", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9003, name: 'Thums Up', price: 39, cat: "🥤 Mixers & Refreshers", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9004, name: 'Packaged Drinking Water', price: 49, cat: "🥤 Mixers & Refreshers", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9005, name: 'Red Bull', price: 249, cat: "🥤 Mixers & Refreshers", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9006, name: 'Ginger Ale', price: 79, cat: "🥤 Mixers & Refreshers", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9007, name: 'Tonic Water', price: 79, cat: "🥤 Mixers & Refreshers", type: 'retail', stockQuantity: 100, inStock: true },
+
+  // Premium Beers
+  { id: 9101, name: 'Budweiser', price: 399, cat: "🍺 Premium Beers (500 ml)", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9102, name: 'Kingfisher Ultra', price: 349, cat: "🍺 Premium Beers (500 ml)", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9103, name: 'Tuborg Mild', price: 349, cat: "🍺 Premium Beers (500 ml)", type: 'retail', stockQuantity: 100, inStock: true },
+
+  // Vodka
+  { id: 9201, name: 'Smirnoff 30ml', price: 169, cat: "🍸 Vodka", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9202, name: 'Smirnoff 60ml', price: 279, cat: "🍸 Vodka", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9203, name: 'Smirnoff 180ml', price: 919, cat: "🍸 Vodka", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9204, name: 'Smirnoff Quart', price: 3199, cat: "🍸 Vodka", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9205, name: 'Smirnoff Jamun 30ml', price: 179, cat: "🍸 Vodka", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9206, name: 'Smirnoff Jamun 60ml', price: 289, cat: "🍸 Vodka", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9207, name: 'Smirnoff Jamun 180ml', price: 929, cat: "🍸 Vodka", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9208, name: 'Smirnoff Jamun Quart', price: 3229, cat: "🍸 Vodka", type: 'retail', stockQuantity: 100, inStock: true },
+
+  // Herbal Liqueur
+  { id: 9301, name: 'Jägermeister 30ml', price: 499, cat: "🦌 Herbal Liqueur", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9302, name: 'Jägerbomb', price: 599, cat: "🦌 Herbal Liqueur", type: 'retail', stockQuantity: 100, inStock: true },
+
+  // Whisky
+  { id: 9401, name: 'Oaksmith Gold 30ml', price: 149, cat: "🥃 Premium Whisky", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9402, name: 'Oaksmith Gold 60ml', price: 299, cat: "🥃 Premium Whisky", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9403, name: 'Oaksmith Gold 180ml', price: 849, cat: "🥃 Premium Whisky", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9404, name: 'Oaksmith Gold 750ml', price: 3599, cat: "🥃 Premium Whisky", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9405, name: 'Blenders Pride 30ml', price: 149, cat: "🥃 Premium Whisky", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9406, name: 'Blenders Pride 60ml', price: 299, cat: "🥃 Premium Whisky", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9407, name: 'Blenders Pride 180ml', price: 849, cat: "🥃 Premium Whisky", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9408, name: 'Blenders Pride 750ml', price: 3599, cat: "🥃 Premium Whisky", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9409, name: 'JW Red Label 30ml', price: 349, cat: "🥃 Premium Whisky", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9410, name: 'JW Red Label 60ml', price: 499, cat: "🥃 Premium Whisky", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9411, name: 'JW Red Label 750ml', price: 4999, cat: "🥃 Premium Whisky", type: 'retail', stockQuantity: 100, inStock: true },
+
+  // Signature Cocktails
+  { id: 9501, name: 'Blue Lagoon', price: 349, cat: "🍹 Signature Cocktails", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9502, name: 'Old Fashioned', price: 399, cat: "🍹 Signature Cocktails", type: 'retail', stockQuantity: 100, inStock: true }
+];
 
 const INITIAL_CATEGORIES = [
   "Quick Snacks", "Breads", "Burgers", "Pizzas", "Wraps", "Pastas",
