@@ -9,7 +9,7 @@ import { get, set } from 'idb-keyval';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import * as XLSX from 'xlsx';
 // --- INITIAL MOCK DATA ---
-const MENU_VERSION = '1';
+const MENU_VERSION = '2';
 
 const GlobalStyles = ({ settings }) => {
   const primaryColor = settings?.accentColor || '#a3112a';
