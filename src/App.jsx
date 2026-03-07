@@ -1951,8 +1951,15 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
         await wT("Nerul Ferry Terminal\n");
         await wT("--------------------------------\n");
         await w(leftAlign);
-        await wT(`Cust: ${orderData.customerName || ''} ${orderData.customerPhone || ''}\n`);
-        await wT("--------------------------------\n");
+        if (orderData.customerName && orderData.customerName !== 'Walk-In') {
+          await wT(`Customer: ${orderData.customerName}\n`);
+        }
+        if (orderData.customerPhone) {
+          await wT(`Phone: ${orderData.customerPhone}\n`);
+        }
+        if ((orderData.customerName && orderData.customerName !== 'Walk-In') || orderData.customerPhone) {
+          await wT("--------------------------------\n");
+        }
         const paddedDate = `Date: ${dateStr}`.padEnd(19, ' ');
         const paddedOrder = `${orderData.orderType || 'Dine In'}: ${orderData.tableName || 'B4'}`.padEnd(13, ' ');
         if (settings.billLayout === 'bold') {
@@ -2100,7 +2107,9 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
 
           <div style="border-top: 1px solid black; margin: 8px 0;"></div>
           <div style="text-align: left; font-size: 14px;">
-            Customer: ${orderData.customerName || ''} ${orderData.customerPhone ? `(${orderData.customerPhone})` : ''}
+            ${(orderData.customerName && orderData.customerName !== 'Walk-In') ? `<div style="font-weight: bold;">Customer: ${orderData.customerName}</div>` : ''}
+            ${orderData.customerPhone ? `<div>Phone: ${orderData.customerPhone}</div>` : ''}
+            ${!(orderData.customerName && orderData.customerName !== 'Walk-In') && !orderData.customerPhone ? '<div>Customer: Walk-In</div>' : ''}
           </div>
           <div style="border-top: 1px solid black; margin: 8px 0;"></div>
 
@@ -3642,7 +3651,8 @@ export default function App() {
     const serviceCharge = (settings?.autoServiceCharge) ? Math.floor(subtotal * (settings?.serviceChargeRate || 5) / 100) : 0;
     const grandTotal = subtotal + serviceCharge;
     await printPosToSerial({
-      table: table.name || table.id,
+      tableName: table.name || table.id,
+      orderType: table.type === 'Delivery' ? 'Delivery' : (table.type === 'Takeaway' ? 'Pick Up' : 'Dine In'),
       items: table.order,
       subtotal,
       grandTotal,
