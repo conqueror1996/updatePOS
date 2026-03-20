@@ -2025,9 +2025,10 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
         await wT(`KOT - ${kotNo}\n`);
 
         await wT(`${orderData.orderType || 'Dine In'}\n`);
-        await wT(`Table No: ${orderData.tableName}\n`);
-        if (orderData.orderId) await wT(`Order No: ${orderData.orderId}\n`);
-        if (orderData.customerName) await wT(`Customer Name: ${orderData.customerName}\n`);
+        if (orderData.isReprint) await wT(`*** DUPLICATE KOT ***\n`);
+        if (orderData.tableName) await wT(`Table: ${orderData.tableName}\n`);
+        if (orderData.orderId) await wT(`Order#: ${orderData.orderId}\n`);
+        if (orderData.customerName) await wT(`Customer: ${orderData.customerName}\n`);
         if (settings.billLayout === 'bold') await w(boldOff);
 
         if (settings.billLayout !== 'minimal') {
@@ -2237,10 +2238,10 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
           <div style="${i < groupsToPrint.length - 1 ? 'page-break-after: always; margin-bottom: 20px;' : ''}">
             <div style="font-size: 14px; font-weight: bold;">${dateStr} ${timeStr}</div>
             <h2 style="margin: 5px 0; font-size: 22px; font-weight: 900;">KOT - ${formattedSeq}</h2>
-            <div style="font-size: 16px; font-weight: bold;">${orderData.orderType || 'Dine In'}</div>
-            <div style="font-size: 16px; font-weight: bold;">Table No: ${orderData.tableName}</div>
+            <div style="font-size: 16px; font-weight: bold;">${orderData.orderType || 'Dine In'} ${orderData.isReprint ? '(REPRINT)' : ''}</div>
+            ${orderData.tableName ? `<div style="font-size: 16px; font-weight: bold;">Table: ${orderData.tableName}</div>` : ''}
             ${orderData.orderId ? `<div style="font-size: 16px; font-weight: bold;">Order No: ${orderData.orderId}</div>` : ''}
-            ${orderData.customerName ? `<div style="font-size: 16px; font-weight: bold;">Customer Name: ${orderData.customerName}</div>` : ''}
+            ${orderData.customerName ? `<div style="font-size: 16px; font-weight: bold;">Customer: ${orderData.customerName}</div>` : ''}
             <div>--------------------------------</div>
             <table style="width: 100%; text-align: left; font-size: 16px; font-weight: bold;">
               <tr>
@@ -2478,6 +2479,7 @@ const OrderingSystem = ({ table, tables, nonTableOrders, initialOrder, onBack, o
       if (isPrint && !isBill && itemsToPrint.length === 0) {
         if (actionType === 'KOT & Print') {
           itemsToPrint = cart.map(item => ({ ...item }));
+          actionType += ' (Reprint)'; // Flag for printPosToSerial
         } else {
           alert("No new items to print for KOT.");
           return;
@@ -2499,7 +2501,8 @@ const OrderingSystem = ({ table, tables, nonTableOrders, initialOrder, onBack, o
     if (isPrint) {
       await printPosToSerial({
         orderId: table?.id,
-        tableName: table?.name || 'Walk-In',
+        isReprint: actionType.includes('Reprint'),
+        tableName: (table?.name === table?.id) ? null : table?.name, // Use if they differ
         customerName: customerName,
         customerPhone: customerPhone,
         items: itemsToPrint,
@@ -3064,6 +3067,18 @@ const AnalyticsDashboard = ({ orderHistory, menuItems }) => {
     XLSX.writeFile(wb, `Business_Performance_Report_${dateFilter}_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
+  const handleExportItemsOnly = () => {
+    if (topItems.length === 0) {
+      alert("No data to export.");
+      return;
+    }
+    const itemsData = topItems.map(item => ({ 'Product Name': item.name, 'Qty Sold': item.qty, 'Revenue': `₹${item.revenue.toFixed(2)}` }));
+    const wsItems = XLSX.utils.json_to_sheet(itemsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, wsItems, "Item Wise Sales");
+    XLSX.writeFile(wb, `ItemWise_Sales_Report_${dateFilter}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   return (
     <div style={{ flex: 1, overflowY: 'auto', padding: '24px', background: '#f9fafb' }} className="animate-fade-in no-scrollbar">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
@@ -3209,7 +3224,10 @@ const AnalyticsDashboard = ({ orderHistory, menuItems }) => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' }}>
         {/* Top Items Table */}
         <div style={{ background: 'white', padding: '20px', borderRadius: '8px', border: '1px solid #e5e7eb', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', maxHeight: '500px', overflowY: 'auto' }}>
-          <h3 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}><TrendingUp size={16} color="#4b5563" /> Item-wise Sales Report ({dateFilter})</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 'bold', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}><TrendingUp size={16} color="#4b5563" /> Item-wise Sales ({dateFilter})</h3>
+            <button onClick={handleExportItemsOnly} style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid var(--primary)', background: 'transparent', color: 'var(--primary)', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>Download List</button>
+          </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <div style={{ display: 'flex', fontSize: '11px', fontWeight: 'bold', color: '#9ca3af', borderBottom: '1px solid #e5e7eb', paddingBottom: '4px', position: 'sticky', top: 0, background: 'white', zIndex: 1 }}>
               <span style={{ flex: 1 }}>ITEM</span>
