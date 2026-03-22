@@ -3516,7 +3516,13 @@ export default function App() {
         const existing = prev.find(o => o.id === tableId);
         if (existing) {
           if (orderItems.length === 0) return prev.filter(o => o.id !== tableId);
-          return prev.map(o => o.id === tableId ? { ...o, order: orderItems, status: newStatus, customerName: extraData.customerName, phone: extraData.customerPhone, note: extraData.note, createdAt: o.createdAt || Date.now() } : o);
+           return prev.map(o => {
+             if (o.id === tableId) {
+               const shouldResetTimer = o.status === 'blank' || !o.createdAt;
+               return { ...o, order: orderItems, status: newStatus, customerName: extraData.customerName, phone: extraData.customerPhone, note: extraData.note, createdAt: shouldResetTimer ? Date.now() : o.createdAt };
+             }
+             return o;
+           });
         }
         return prev;
       });
@@ -3524,7 +3530,8 @@ export default function App() {
     } else {
       setTables(prev => prev.map(t => {
         if (t.id === tableId) {
-          return { ...t, order: orderItems, status: newStatus, customerName: extraData.customerName, phone: extraData.customerPhone, note: extraData.note, createdAt: t.createdAt || Date.now() };
+          const shouldResetTimer = t.status === 'blank' || !t.createdAt;
+          return { ...t, order: orderItems, status: newStatus, customerName: extraData.customerName, phone: extraData.customerPhone, note: extraData.note, createdAt: shouldResetTimer ? Date.now() : t.createdAt };
         }
         return t;
       }));
@@ -3699,7 +3706,7 @@ export default function App() {
                   if (targetTable) {
                     setTables(prev => prev.map(t => {
                       if (t.id === newId) return { ...t, order: currentCart, status: 'running', createdAt: t.createdAt || Date.now() };
-                      if (t.id === oldId) return { ...t, order: [], status: 'blank' };
+                      if (t.id === oldId) return { ...t, order: [], status: 'blank', createdAt: null };
                       return t;
                     }));
                     setSelectedTable({ ...targetTable, order: currentCart, status: 'running' });
