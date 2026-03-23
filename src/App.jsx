@@ -351,15 +351,15 @@ const AppTopNavbar = ({ onSimulateAggregator, globalSearch, onSearchChange, onTo
       </button>
 
       <div style={{ display: 'flex', gap: '8px', borderLeft: '1px solid #f1f5f9', paddingLeft: '16px' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer' }}>
+        <div onClick={() => onViewChange('dayclose')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer', padding: '0 4px' }}>
           <Sunset size={18} color="#64748b" />
           <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Day Close</span>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer' }}>
+        <div onClick={() => onViewChange('analytics')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer', padding: '0 4px' }}>
           <BarChart3 size={18} color="#64748b" />
           <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Reports</span>
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer' }}>
+        <div onClick={() => onViewChange('kds')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer', padding: '0 4px' }}>
           <ChefHat size={18} color="#64748b" />
           <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Kitchen</span>
         </div>
