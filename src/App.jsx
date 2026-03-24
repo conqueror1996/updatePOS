@@ -320,9 +320,8 @@ const AppTopNavbar = ({ onSimulateAggregator, globalSearch, onSearchChange, onTo
     <button onClick={() => onViewChange('tables')} style={{ background: '#94161c', color: 'white', border: 'none', borderRadius: '8px', padding: '8px 16px', fontWeight: 'bold', fontSize: '13px', cursor: 'pointer' }}>New Order</button>
 
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '12px' }}>
-      <div style={{ background: '#fff1f2', color: '#be123c', padding: '8px 16px', borderRadius: '8px', fontSize: '13px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }} onClick={onSimulateAggregator}>
-        <Plus size={16} /> Online Sync
-      </div>
+      {/* Removed Online Sync Button */}
+
       
       <div style={{ background: '#f8fafc', padding: '10px 18px', borderRadius: '14px', border: '1px solid #e2e8f0', flex: 1, display: 'flex', alignItems: 'center', gap: '12px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.02)' }}>
         <Search size={18} color="#94a3b8" />
@@ -1847,9 +1846,7 @@ const NonTableManagement = ({ orders, onSelectOrder, onCreateOrder, onViewChange
           let bg = order.type === 'Delivery' ? '#fff1f2' : '#f0f9ff';
           let text = order.type === 'Delivery' ? '#be123c' : '#0369a1';
           let border = order.type === 'Delivery' ? '#ffe4e6' : '#e0f2fe';
-          if (order.type === 'Zomato') { bg = '#fff1f2'; text = '#e11d48'; border = '#ffe4e6'; }
-          if (order.type === 'Swiggy') { bg = '#fff7ed'; text = '#c2410c'; border = '#ffedd5'; }
-          if (order.type === 'Thrive') { bg = '#f0fdf4'; text = '#15803d'; border = '#dcfce7'; }
+
           let statusLabel = 'Preparing';
           let statusColor = '#f59e0b';
           if (order.status === 'printed') { statusLabel = 'Ready'; statusColor = '#10b981'; }
@@ -2382,7 +2379,7 @@ const OrderingSystem = ({ table, tables, nonTableOrders, initialOrder, onBack, o
   const [cart, setCart] = useState(initialOrder || []);
   const [activeCat, setActiveCat] = useState("Quick Snack's");
   const [searchQuery, setSearchQuery] = useState('');
-  const isPickup = table?.type === 'Takeaway' || table?.type === 'Delivery' || ['Zomato', 'Swiggy', 'Thrive'].includes(table?.type);
+  const isPickup = table?.type === 'Takeaway' || table?.type === 'Delivery';
   const [orderNote, setOrderNote] = useState(table?.note || '');
 
   // Customer CRM State
@@ -2413,7 +2410,7 @@ const OrderingSystem = ({ table, tables, nonTableOrders, initialOrder, onBack, o
   const [customNoteText, setCustomNoteText] = useState('');
 
   // Service Charge & Discount State
-  const [applyServiceCharge, setApplyServiceCharge] = useState(settings?.autoServiceCharge ?? true);
+  const [applyServiceCharge, setApplyServiceCharge] = useState(isPickup ? true : (settings?.autoServiceCharge ?? true));
   const [serviceChargeRate, setServiceChargeRate] = useState(settings?.serviceChargeRate ?? 5);
 
   const [applyDiscount, setApplyDiscount] = useState(false);
@@ -2690,10 +2687,10 @@ const OrderingSystem = ({ table, tables, nonTableOrders, initialOrder, onBack, o
             </div>
           )}
           <button onClick={onBack} style={{ background: 'transparent', border: 'none', fontSize: '11px', color: '#6b7280', cursor: 'pointer', textDecoration: 'underline' }}>
-            {table && (String(table.id).startsWith('DEL-') || String(table.id).startsWith('TAK-') || String(table.id).startsWith('ZOMATO-') || String(table.id).startsWith('SWIGGY-') || String(table.id).startsWith('THRIVE-')) ? 'Back to Online' : 'Back to Tables'}
+            {table && (String(table.id).startsWith('DEL-') || String(table.id).startsWith('TAK-')) ? 'Back to Online' : 'Back to Tables'}
           </button>
           <div style={{ marginLeft: 'auto', background: '#94161c', color: 'white', padding: '4px 10px', borderRadius: '4px', fontSize: '11px', fontWeight: 'bold' }}>
-            {table?.type === 'Delivery' ? 'Delivery' : table?.type === 'Takeaway' ? 'Takeaway' : ['Zomato', 'Swiggy', 'Thrive'].includes(table?.type) ? table?.type : 'Dine In'}
+            {table?.type === 'Delivery' ? 'Delivery' : table?.type === 'Takeaway' ? 'Takeaway' : 'Dine In'}
           </div>
         </div>
 
@@ -2999,16 +2996,15 @@ const OrderingSystem = ({ table, tables, nonTableOrders, initialOrder, onBack, o
 
 /* --- ANALYTICS DASHBOARD --- */
 const AnalyticsDashboard = ({ orderHistory, menuItems }) => {
-  const [dateFilter, setDateFilter] = useState('daily');
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [chartType, setChartType] = useState('Bar Chart');
 
+  // Generate unique dates from history for selection
+  const availableDates = Array.from(new Set(orderHistory.map(o => new Date(o.timestamp).toISOString().split('T')[0]))).sort().reverse();
+
   const filteredHistory = orderHistory.filter(order => {
-    const orderDate = new Date(order.timestamp || Date.now());
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const orderDateNoTime = new Date(orderDate);
-    orderDateNoTime.setHours(0, 0, 0, 0);
-    return orderDateNoTime.getTime() === today.getTime();
+    const d = new Date(order.timestamp).toISOString().split('T')[0];
+    return d === selectedDate;
   });
 
   const totalSales = filteredHistory.reduce((acc, order) => acc + order.grandTotal, 0);
@@ -3023,15 +3019,21 @@ const AnalyticsDashboard = ({ orderHistory, menuItems }) => {
     typeOrders[oType] += 1;
   });
 
-  const hourlyData = Array.from({ length: 6 }).map((_, i) => {
-    const slots = ['01:00am-05:00am', '05:00am-09:00am', '09:00am-01:00pm', '01:00pm-05:00pm', '05:00pm-09:00pm', '09:00pm-01:00am'];
-    const startHour = [1, 5, 9, 13, 17, 21][i];
-    const endHour = startHour + 4;
+  const cashSales = filteredHistory.filter(o => o.paymentMethod === 'Cash').reduce((acc, o) => acc + o.grandTotal, 0);
+  const onlineSalesVal = filteredHistory.filter(o => o.paymentMethod !== 'Cash').reduce((acc, o) => acc + o.grandTotal, 0);
+  const cashPercent = totalSales > 0 ? (cashSales / totalSales) * 100 : 0;
+  const onlinePercent = totalSales > 0 ? (onlineSalesVal / totalSales) * 100 : 0;
+
+  const betterHourlyData = Array.from({ length: 12 }).map((_, i) => {
+    const startHour = i * 2;
+    const endHour = startHour + 2;
+    const startStr = `${startHour === 0 ? 12 : (startHour > 12 ? startHour - 12 : startHour)} ${startHour >= 12 ? 'PM' : 'AM'}`;
+    const label = `${startStr}`;
     const revenue = filteredHistory.filter(o => {
       const h = new Date(o.timestamp).getHours();
       return h >= startHour && h < endHour;
     }).reduce((acc, o) => acc + o.grandTotal, 0);
-    return { label: slots[i], revenue };
+    return { label, revenue };
   });
 
   return (
@@ -3042,13 +3044,18 @@ const AnalyticsDashboard = ({ orderHistory, menuItems }) => {
         <div style={{ background: 'white', padding: '14px 20px', borderRadius: '14px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}>
           <div style={{ fontSize: '13px', color: '#64748b', display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
-            <span>Order synced <strong>4 Mins ago</strong> & POS synced <strong>4 Mins ago</strong>.</span>
+            <span>Operational data for <strong>{new Date(selectedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}</strong></span>
           </div>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
-             <select style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px', fontWeight: '900', color: '#1e293b', appearance: 'none', background: 'white' }}>
-               <option>4th Mar</option>
+             <select 
+               value={selectedDate} 
+               onChange={e => setSelectedDate(e.target.value)}
+               style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px', fontWeight: '900', color: '#1e293b', background: 'white' }}
+             >
+               {availableDates.length > 0 ? availableDates.map(d => (
+                 <option key={d} value={d}>{new Date(d).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}</option>
+               )) : <option value={new Date().toISOString().split('T')[0]}>Today</option>}
              </select>
-             <button style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}><Plus size={18} /></button>
           </div>
         </div>
 
@@ -3074,32 +3081,28 @@ const AnalyticsDashboard = ({ orderHistory, menuItems }) => {
         {/* Chart Card */}
         <div style={{ background: 'white', padding: '32px', borderRadius: '20px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '40px' }}>
-            <h3 style={{ fontSize: '18px', fontWeight: '950', color: '#1e293b', letterSpacing: '-0.5px' }}>Sales</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: '950', color: '#1e293b', letterSpacing: '-0.5px' }}>Sales (Hourly)</h3>
             <div style={{ display: 'flex', gap: '12px' }}>
               <select value={chartType} onChange={e => setChartType(e.target.value)} style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px', fontWeight: '800' }}>
                 <option>Bar Chart</option>
                 <option>Line Chart</option>
               </select>
-              <select style={{ padding: '6px 14px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px', fontWeight: '800' }}>
-                <option>4th Mar</option>
-              </select>
-              <button style={{ background: 'transparent', border: 'none', color: '#94a3b8', cursor: 'pointer' }}><Plus size={18} /></button>
             </div>
           </div>
           <div style={{ height: '350px' }}>
             <ResponsiveContainer width="100%" height="100%">
               {chartType === 'Bar Chart' ? (
-                <BarChart data={hourlyData}>
+                <BarChart data={betterHourlyData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: '700' }} />
+                  <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: '700' }} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: '700' }} />
                   <RechartsTooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
-                  <Bar dataKey="revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={32} />
+                  <Bar dataKey="revenue" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={40} />
                 </BarChart>
               ) : (
-                <LineChart data={hourlyData}>
+                <LineChart data={betterHourlyData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: '700' }} />
+                  <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: '700' }} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#94a3b8', fontWeight: '700' }} />
                   <RechartsTooltip contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }} />
                   <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={4} dot={{ r: 6, fill: '#3b82f6', strokeWidth: 2, stroke: 'white' }} activeDot={{ r: 8 }} />
@@ -3114,19 +3117,30 @@ const AnalyticsDashboard = ({ orderHistory, menuItems }) => {
           <div style={{ background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
               <div style={{ fontSize: '15px', fontWeight: '950', color: '#1e293b' }}>Payment Bifurcation</div>
-              <select style={{ fontSize: '11px', border: 'none', fontWeight: '800', color: '#64748b' }}><option>4th Mar</option></select>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-               <div style={{ flex: 1, height: '12px', background: '#f1f5f9', borderRadius: '6px', overflow: 'hidden' }}>
-                 <div style={{ width: '100%', height: '100%', background: '#3b82f6' }} />
-               </div>
-               <div style={{ fontSize: '14px', fontWeight: '900', color: '#1e293b' }}>100% Cash</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                 <div style={{ flex: 1, height: '12px', background: '#f1f5f9', borderRadius: '6px', overflow: 'hidden', display: 'flex' }}>
+                   <div style={{ width: `${cashPercent}%`, height: '100%', background: '#94161c' }} />
+                   <div style={{ width: `${onlinePercent}%`, height: '100%', background: '#3b82f6' }} />
+                 </div>
+                 <div style={{ fontSize: '12px', fontWeight: '900', color: '#1e293b', minWidth: '80px', textAlign: 'right' }}>₹ {totalSales.toLocaleString()}</div>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#94161c' }} />
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>Cash: <strong>₹{cashSales.toLocaleString()}</strong> ({cashPercent.toFixed(1)}%)</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#3b82f6' }} />
+                  <span style={{ fontSize: '12px', fontWeight: '700', color: '#64748b' }}>Online: <strong>₹{onlineSalesVal.toLocaleString()}</strong> ({onlinePercent.toFixed(1)}%)</span>
+                </div>
+              </div>
             </div>
           </div>
           <div style={{ background: 'white', padding: '24px', borderRadius: '16px', border: '1px solid #e2e8f0' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
               <div style={{ fontSize: '15px', fontWeight: '950', color: '#1e293b' }}>Expenses & Withdrawal</div>
-              <select style={{ fontSize: '11px', border: 'none', fontWeight: '800', color: '#64748b' }}><option>4th Mar</option></select>
             </div>
             <div style={{ color: '#94a3b8', fontSize: '13px', fontWeight: '600', textAlign: 'center', padding: '10px' }}>No records found</div>
           </div>
@@ -3150,10 +3164,9 @@ const AnalyticsDashboard = ({ orderHistory, menuItems }) => {
         <div style={{ marginBottom: '40px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
              <h4 style={{ fontSize: '15px', fontWeight: '950', color: '#1e293b' }}>Order Statistics</h4>
-             <select style={{ fontSize: '11px', border: 'none', fontWeight: '800', color: '#64748b' }}><option>4th Mar</option></select>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
-            <div style={{ textAlign: 'center', background: '#f8fafc', padding: '12px', borderRadius: '12px' }}><div style={{ fontSize: '20px', fontWeight: '950' }}>29</div><div style={{ fontSize: '10px', color: '#64748b', fontWeight: '800', marginTop: '2px' }}>Successful</div></div>
+            <div style={{ textAlign: 'center', background: '#f8fafc', padding: '12px', borderRadius: '12px' }}><div style={{ fontSize: '20px', fontWeight: '950' }}>{totalOrders}</div><div style={{ fontSize: '10px', color: '#64748b', fontWeight: '800', marginTop: '2px' }}>Successful</div></div>
             <div style={{ textAlign: 'center', background: '#f8fafc', padding: '12px', borderRadius: '12px' }}><div style={{ fontSize: '20px', fontWeight: '950' }}>0</div><div style={{ fontSize: '10px', color: '#64748b', fontWeight: '800', marginTop: '2px' }}>Cancel</div></div>
             <div style={{ textAlign: 'center', background: '#f8fafc', padding: '12px', borderRadius: '12px' }}><div style={{ fontSize: '20px', fontWeight: '950' }}>0</div><div style={{ fontSize: '10px', color: '#64748b', fontWeight: '800', marginTop: '2px' }}>Gifted</div></div>
           </div>
@@ -3165,7 +3178,6 @@ const AnalyticsDashboard = ({ orderHistory, menuItems }) => {
         <div style={{ marginBottom: '40px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
              <h4 style={{ fontSize: '15px', fontWeight: '950', color: '#1e293b' }}>Revenue Leakage</h4>
-             <select style={{ fontSize: '11px', border: 'none', fontWeight: '800', color: '#64748b' }}><option>4th Mar</option></select>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '12px', fontWeight: '900', color: '#94a3b8' }}>
             <span>BILLS</span>
@@ -3651,28 +3663,10 @@ export default function App() {
     setView('ordering');
   };
 
-  const handleSimulateAggregator = () => {
-    const platforms = ['Zomato', 'Swiggy', 'Thrive'];
-    const type = platforms[Math.floor(Math.random() * platforms.length)];
-    const newId = `${type.toUpperCase()}-${Math.floor(Math.random() * 9000) + 1000}`;
-    const newOrder = {
-      id: newId,
-      name: `${newId} (Online)`,
-      status: 'kot',
-      type: type,
-      order: [
-        { ...(menuItems.find(i => i.price > 100) || menuItems[0]), qty: 1, cartItemId: 'agg1', printedQty: 0 },
-        { ...(menuItems.find(i => i.price < 200) || menuItems[1]), qty: 2, cartItemId: 'agg2', printedQty: 0 }
-      ],
-      phone: '',
-      createdAt: Date.now()
-    };
-    setNonTableOrders(prev => [...prev, newOrder]);
-    alert(`Incoming automated ${type} order received through Live Sync!`);
-  };
+  // Removed handleSimulateAggregator
 
   const saveOrderToTable = (tableId, orderItems, newStatus, extraData = {}) => {
-    if (String(tableId).startsWith('DEL-') || String(tableId).startsWith('TAK-') || String(tableId).startsWith('ZOMATO-') || String(tableId).startsWith('SWIGGY-') || String(tableId).startsWith('THRIVE-')) {
+    if (String(tableId).startsWith('DEL-') || String(tableId).startsWith('TAK-')) {
       setNonTableOrders(prev => {
         const existing = prev.find(o => o.id === tableId);
         if (existing) {
@@ -3891,7 +3885,7 @@ export default function App() {
                 }
               }}
               onBack={() => {
-                if (selectedTable && (String(selectedTable.id).startsWith('DEL-') || String(selectedTable.id).startsWith('TAK-') || String(selectedTable.id).startsWith('ZOMATO-') || String(selectedTable.id).startsWith('SWIGGY-') || String(selectedTable.id).startsWith('THRIVE-'))) {
+                if (selectedTable && (String(selectedTable.id).startsWith('DEL-') || String(selectedTable.id).startsWith('TAK-'))) {
                   setView('nontables');
                 } else {
                   setView('tables');
