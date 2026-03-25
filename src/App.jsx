@@ -5,7 +5,7 @@ import {
   Minus, X, Utensils, Smartphone, BarChart3, TrendingUp, PieChart, AlertTriangle, Truck, ShoppingBag, ChefHat, MessageSquare, CheckSquare, Sunset, Trash2, Package
 } from 'lucide-react';
 import './index.css';
-import { get, set } from 'idb-keyval';
+import { get, set, del, clear } from 'idb-keyval';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, PieChart as RechartsPieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import * as XLSX from 'xlsx';
 // --- INITIAL MOCK DATA ---
@@ -1296,7 +1296,7 @@ const FloorPlanSetupView = ({ tables, setTables, sections, setSections }) => {
 
 /* --- SYSTEM SETTINGS VIEW --- */
 /* --- ADVANCED GLOBAL SETTINGS VIEW --- */
-const GlobalSettingsView = ({ settings, onSaveSettings }) => {
+const GlobalSettingsView = ({ settings, onSaveSettings, onClearHistory, onFullReset }) => {
   const [localSettings, setLocalSettings] = useState(settings);
 
   const handleChange = (e) => {
@@ -1438,8 +1438,26 @@ const GlobalSettingsView = ({ settings, onSaveSettings }) => {
           </div>
 
           <button onClick={handleSave} style={{ marginTop: '20px', padding: '14px', background: localSettings.accentColor, color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', boxShadow: `0 4px 6px -1px ${localSettings.accentColor}30` }}>
-            Save Global Settings
+            Save Comprehensive Interface Settings
           </button>
+
+          <div style={{ borderTop: '2px solid #fee2e2', marginTop: '40px', paddingTop: '24px' }}>
+            <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#dc2626', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <AlertTriangle size={20} color="#dc2626" /> Danger Zone: Data Management
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+              <div style={{ padding: '16px', background: '#fff1f2', borderRadius: '12px', border: '1px solid #fecaca' }}>
+                 <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#991b1b', marginBottom: '4px' }}>Clear Analytics & History</div>
+                 <div style={{ fontSize: '11px', color: '#b91c1c', marginBottom: '12px', opacity: 0.8 }}>Wipe all past orders. Active orders will remain.</div>
+                 <button onClick={onClearHistory} style={{ width: '100%', padding: '10px', background: 'white', border: '1px solid #fecaca', color: '#dc2626', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>Clear All Orders</button>
+              </div>
+              <div style={{ padding: '16px', background: '#7f1d1d', borderRadius: '12px', color: 'white' }}>
+                 <div style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '4px' }}>Full Factory Reset</div>
+                 <div style={{ fontSize: '11px', marginBottom: '12px', opacity: 0.8 }}>Delete EVERYTHING (Settings, Menu, Orders).</div>
+                 <button onClick={onFullReset} style={{ width: '100%', padding: '10px', background: '#dc2626', border: 'none', color: 'white', borderRadius: '6px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}>Reset System</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -3847,6 +3865,31 @@ export default function App() {
     setSelectedTable(null);
   };
 
+  const handleClearHistory = () => {
+    if (window.confirm("CRITICAL: Wipe ALL historical sales data? This will reset all analytics and history. Type 'clear' to confirm.")) {
+       const confirm = window.prompt("Type 'clear' below:");
+       if (confirm === "clear") {
+          setOrderHistory([]);
+          alert("Order History Wiped.");
+       }
+    }
+  };
+
+  const handleFullReset = async () => {
+    if (window.confirm("FACTORY RESET: This will delete orders, menu items, settings, and floor plans. You will lose everything.")) {
+       const confirm = window.prompt("Type 'RESET' to wipe entire system:");
+       if (confirm === "RESET") {
+          try {
+             await clear(); // idb-keyval.clear() wipes the entire database
+             localStorage.clear();
+             window.location.reload();
+          } catch(err) {
+             alert("Error resetting. Please clear browser storage manually.");
+          }
+       }
+    }
+  };
+
   const markOrderReady = (order) => {
     saveOrderToTable(order.id, order.order, 'printed')
     alert(`Order for ${order.name} marked as ready! Front-stage notified.`);
@@ -3937,7 +3980,12 @@ export default function App() {
             <OrderHistoryView orderHistory={orderHistory} activePickups={nonTableOrders} onSelectActive={handleSelectTable} globalSearch={globalSearch} tables={tables} />
           )}
           {view === 'globalsettings' && (
-            <GlobalSettingsView settings={settings} onSaveSettings={setSettings} />
+            <GlobalSettingsView 
+              settings={settings} 
+              onSaveSettings={setSettings} 
+              onClearHistory={handleClearHistory}
+              onFullReset={handleFullReset}
+            />
           )}
           {view === 'printersettings' && (
             <PrinterSettingsView settings={settings} onSaveSettings={setSettings} categories={categories} />
