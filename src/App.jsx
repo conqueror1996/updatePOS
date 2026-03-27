@@ -1924,7 +1924,7 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
   } catch (e) { }
   const formattedSeq = seqNumber.toString().padStart(4, '0');
 
-  let settings = { billHeader: 'TYDE CAFE', billFooter: 'Thank You for Visiting!', categorizedKOT: false, billLayout: 'standard' };
+  let settings = { billHeader: 'Tyde Cafe', billFooter: 'Sea you soon — under the moon', categorizedKOT: false, billLayout: 'standard' };
   try {
     const rawSettings = await get('pos_printer_settings');
     if (rawSettings) {
@@ -2041,28 +2041,27 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
 
       if (type === 'BILL') {
         if (settings.billLayout === 'bold') await w(boldOn);
+        await w(centerAlign);
         await wT(`${settings.billHeader || 'Tyde Cafe'}\n`);
         if (settings.billLayout === 'bold') await w(boldOff);
         await wT("Nerul Ferry Terminal\n");
         await wT("--------------------------------\n");
         await w(leftAlign);
-        if (orderData.customerName) {
-          await wT(`Customer: ${orderData.customerName}\n`);
-        }
-        if (orderData.customerPhone) {
-          await wT(`Phone: ${orderData.customerPhone}\n`);
-        }
-        if (orderData.customerName || orderData.customerPhone) {
-          await wT("--------------------------------\n");
-        }
-        const paddedDate = `Date: ${dateStr}`.padEnd(16, ' ');
-        const orderInfoLabel = `${orderData.orderType || 'Dine In'}: ${orderData.tableName || ''}`;
-        await wT(`${paddedDate}${orderInfoLabel}\n`);
-
+        await w(boldOn);
+        await wT(`Name: ${(orderData.customerName && orderData.customerName !== 'Walk-In') ? orderData.customerName : '________________'}\n`);
+        await w(boldOff);
+        await wT("--------------------------------\n");
+        const dateLine = `Date: ${dateStr}`.padEnd(16, ' ');
+        await wT(`${dateLine}Dine In: `);
+        await w(boldOn);
+        await wT(`${orderData.tableName || ''}\n`);
+        await w(boldOff);
         await wT(`${timeStr}\n`);
         await wT(`Cashier: biller   Bill No.: ${formattedSeq}\n`);
         await wT("--------------------------------\n");
-        await wT("Item              Qty  Price Amount\n");
+        await w(boldOn);
+        await wT("Item              Qty. Price Amount\n");
+        await w(boldOff);
         await wT("--------------------------------\n");
 
         let totalQty = 0;
@@ -2094,11 +2093,11 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
 
         await w(boldOn);
         const gTotalStr = (orderData.grandTotal || 0).toFixed(2).padStart(8, ' ');
-        await wT(`      Grand Total     Rs.${gTotalStr}\n`);
+        await wT(`      Grand Total     ₹${gTotalStr}\n`);
         await w(boldOff);
         await wT("--------------------------------\n");
         await w(centerAlign);
-        await wT(`   ${settings.billFooter || 'Sea you soon -- under the moon'} \n`);
+        await wT(`   ${settings.billFooter || 'Sea you soon — under the moon'} \n`);
 
       } else {
         // --- KOT PRINTING ---
@@ -2191,90 +2190,95 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
       const totalQty = orderData.items.reduce((acc, item) => acc + item.qty, 0);
 
       printContent += `
-          <h2 style="font-size: 18px; font-weight: bold; margin: 0 0 5px 0;">${settings.billHeader || 'Tyde Cafe'}</h2>
-          <div style="font-size: 14px; margin-bottom: 10px;">Nerul Ferry Terminal</div>
+          <h2 style="font-size: 22px; font-weight: 800; margin: 0 0 2px 0;">${settings.billHeader || 'Tyde Cafe'}</h2>
+          <div style="font-size: 14px; margin-bottom: 8px;">Nerul Ferry Terminal</div>
 
-          <div style="border-top: 1px solid black; margin: 8px 0;"></div>
-          <div style="text-align: left; font-size: 14px;">
-            ${(orderData.customerName && orderData.customerName !== 'Walk-In') ? `<div style="font-weight: bold;">Customer: ${orderData.customerName}</div>` : ''}
-            ${orderData.customerPhone ? `<div>Phone: ${orderData.customerPhone}</div>` : ''}
-            ${!(orderData.customerName && orderData.customerName !== 'Walk-In') && !orderData.customerPhone ? '<div>Customer: Walk-In</div>' : ''}
+          <div style="border-top: 1.5px solid black; margin: 5px 0;"></div>
+          <div style="text-align: left; font-size: 15px; font-weight: bold; margin-bottom: 2px;">
+            Name: ${(orderData.customerName && orderData.customerName !== 'Walk-In') ? orderData.customerName : '________________'}
           </div>
-          <div style="border-top: 1px solid black; margin: 8px 0;"></div>
+          <div style="border-top: 1.5px solid black; margin: 5px 0;"></div>
 
-          <div style="display: flex; justify-content: space-between; text-align: left; font-size: 14px;">
+          <div style="display: flex; justify-content: space-between; text-align: left; font-size: 14px; margin-bottom: 2px;">
             <div style="flex: 1.2;">
               <div>Date: ${dateStr}</div>
-              <div>${timeStr}</div>
+              <div style="margin-top: 2px;">${timeStr}</div>
               <div style="margin-top: 2px;">Cashier: biller</div>
             </div>
-            <div style="flex: 1;">
-              <div style="font-weight: bold;">${orderData.orderType || 'Dine In'}: ${orderData.tableName || 'B4'}</div>
+            <div style="flex: 1; text-align: right;">
+              <div>Dine In: <span style="font-weight: bold;">${orderData.tableName || ''}</span></div>
               <div style="margin-top: 18px;">Bill No.: ${formattedSeq}</div>
             </div>
           </div>
 
-          <div style="border-top: 1px solid black; margin: 8px 0;"></div>
+          <div style="border-top: 1.5px solid black; margin: 8px 0;"></div>
 
-          <table style="width: 100%; text-align: left; font-size: 13px; border-collapse: collapse;">
-            <tr>
-              <th style="font-weight: normal; padding-bottom: 4px;">Item</th>
-              <th style="font-weight: normal; text-align: right; padding-bottom: 4px;">Qty.</th>
-              <th style="font-weight: normal; text-align: right; padding-bottom: 4px;">Price</th>
-              <th style="font-weight: normal; text-align: right; padding-bottom: 4px;">Amount</th>
-            </tr>
-            <tr><td colspan="4" style="border-top: 1px solid black; margin: 8px 0;"></td></tr>
-            `;
+          <table style="width: 100%; text-align: left; font-size: 14px; border-collapse: collapse;">
+            <thead>
+              <tr style="border-bottom: 1.5px solid black;">
+                <th style="font-weight: bold; padding-bottom: 6px;">Item</th>
+                <th style="font-weight: bold; text-align: right; padding-bottom: 6px;">Qty.</th>
+                <th style="font-weight: bold; text-align: right; padding-bottom: 6px;">Price</th>
+                <th style="font-weight: bold; text-align: right; padding-bottom: 6px;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              `;
       for (let item of orderData.items) {
         printContent += `<tr>
-             <td style="padding-top: 4px;">${item.name}</td>
-             <td style="text-align: right; padding-top: 4px;">${item.qty}</td>
-             <td style="text-align: right; padding-top: 4px;">${item.price.toFixed(2)}</td>
-             <td style="text-align: right; padding-top: 4px;">${(item.price * item.qty).toFixed(2)}</td>
+             <td style="padding-top: 6px;">${item.name}</td>
+             <td style="text-align: right; padding-top: 6px;">${item.qty}</td>
+             <td style="text-align: right; padding-top: 6px;">${item.price.toFixed(2)}</td>
+             <td style="text-align: right; padding-top: 6px;">${(item.price * item.qty).toFixed(2)}</td>
            </tr>`;
       }
       printContent += `
+            </tbody>
           </table>
 
-          <div style="border-top: 1px solid black; margin: 8px 0;"></div>
+          <div style="border-top: 1.5px solid black; margin: 8px 0;"></div>
 
-          <div style="display: flex; font-size: 13px; text-align: right;">
-            <div style="flex: 3; padding-right: 15px;">
-              <div style="margin-bottom: 15px;">Total Qty: ${totalQty}</div>
-              ${orderData.serviceCharge > 0 ? `
-              <div>Service Charge</div>
-              <div>(Optional)</div>
-              ` : ''}
+          <div style="display: flex; font-size: 14px; text-align: right; margin-bottom: 10px;">
+            <div style="flex: 1.5; text-align: left;">
+              Total Qty: ${totalQty}
             </div>
-            <div style="flex: 2; display: flex;">
-              <div style="flex: 1; text-align: left;">
-                <div>Sub</div>
-                <div>Total</div>
-              </div>
-              <div style="flex: 1.5; text-align: right;">
-                <div style="margin-bottom: 15px;"><br>${(orderData.subtotal || 0).toFixed(2)}</div>
-                ${orderData.serviceCharge > 0 ? `
-                 <div>${(orderData.serviceCharge || 0).toFixed(2)}</div>
-                 ` : ''}
-              </div>
+            <div style="flex: 1.5; text-align: right; padding-right: 20px;">
+               <div>Sub</div>
+               <div>Total</div>
+            </div>
+            <div style="flex: 1; text-align: right;">
+               <div>${(orderData.subtotal || 0).toFixed(2)}</div>
             </div>
           </div>
 
-          <div style="border-top: 1px solid black; margin: 8px 0;"></div>
+          ${orderData.serviceCharge > 0 ? `
+          <div style="display: flex; font-size: 14px; text-align: right; margin-bottom: 10px;">
+            <div style="flex: 1.5;"></div>
+            <div style="flex: 1.5; text-align: right; padding-right: 20px;">
+               <div>Service Charge</div>
+               <div style="font-size: 12px;">(Optional)</div>
+            </div>
+            <div style="flex: 1; text-align: right;">
+               <div>${(orderData.serviceCharge || 0).toFixed(2)}</div>
+            </div>
+          </div>
+          ` : ''}
+
+          <div style="border-top: 1.5px solid black; margin: 8px 0;"></div>
 
           <div style="display: flex; justify-content: flex-end; font-size: 12px; margin-bottom: 4px;">
             <div style="margin-right: 15px;">Round off</div>
             <div>${orderData.roundOff > 0 ? '+' : ''}${(orderData.roundOff || 0).toFixed(2)}</div>
           </div>
 
-          <div style="display: flex; justify-content: flex-end; align-items: center;">
-            <div style="font-size: 15px; font-weight: bold; margin-right: 15px;">Grand Total</div>
-            <div style="font-size: 16px; font-weight: bold;">₹${(orderData.grandTotal || 0).toFixed(2)}</div>
+          <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 8px;">
+            <div style="font-size: 16px; font-weight: bold; margin-right: 15px;">Grand Total</div>
+            <div style="font-size: 18px; font-weight: bold;">₹${(orderData.grandTotal || 0).toFixed(2)}</div>
           </div>
 
-          <div style="border-top: 1px solid black; margin: 8px 0;"></div>
+          <div style="border-top: 1.5px solid black; margin: 8px 0;"></div>
 
-          <div style="font-size: 13px; margin-top: 4px;">${settings.billFooter || 'Sea you soon &mdash; under the moon'}</div>
+          <div style="font-size: 14px; margin-top: 8px; font-style: italic;">${settings.billFooter || 'Sea you soon — under the moon'}</div>
           `;
 
     } else { // KOT
@@ -3630,8 +3634,8 @@ export default function App() {
   const [orderHistory, setOrderHistory] = useState([]);
   const [nonTableOrders, setNonTableOrders] = useState([]);
   const [settings, setSettings] = useState({
-    billHeader: 'TYDE CAFE',
-    billFooter: 'Thank You for Visiting!',
+    billHeader: 'Tyde Cafe',
+    billFooter: 'Sea you soon — under the moon',
     categorizedKOT: false,
     billLayout: 'standard',
     printFontFamily: 'Helvetica, Arial, sans-serif',
