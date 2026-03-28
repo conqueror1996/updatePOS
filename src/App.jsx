@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import { EscPosGenerator } from './EscPosGenerator';
 import {
   Menu, Search, Store, Monitor, LayoutGrid, Clock, Bell, User,
   ChevronDown, ChevronUp, Info, CreditCard, Banknote, Printer, Eye, Plus,
-  Minus, X, Utensils, Smartphone, BarChart3, TrendingUp, PieChart, AlertTriangle, Truck, ShoppingBag, ChefHat, MessageSquare, CheckSquare, Sunset, Trash2, Package
+  Minus, X, Utensils, Smartphone, BarChart3, TrendingUp, PieChart, AlertTriangle, Truck, ShoppingBag, ChefHat, MessageSquare, CheckSquare, Sunset, Trash2, Package,
+  Image as ImageIcon, Type, AlignLeft, AlignCenter, AlignRight, Scissors, FileText, Settings2, Palette, Save, RefreshCw, Layers, Monitor as MonitorIcon, HardDrive
 } from 'lucide-react';
 import './index.css';
 import { get, set, del, clear } from 'idb-keyval';
@@ -84,9 +86,9 @@ const INITIAL_PRODUCT_CATEGORIES = [
 
 const INITIAL_PRODUCTS = [
   // Mixers & Refreshers
-  { id: 9001, name: 'Soda', price: 29, cat: "🥤 Mixers & Refreshers", type: 'retail', stockQuantity: 100, inStock: true },
-  { id: 9002, name: 'Sprite', price: 39, cat: "🥤 Mixers & Refreshers", type: 'retail', stockQuantity: 100, inStock: true },
-  { id: 9003, name: 'Thums Up', price: 39, cat: "🥤 Mixers & Refreshers", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9001, name: 'Soda', price: 29, costPrice: 10, cat: "🥤 Mixers & Refreshers", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9002, name: 'Sprite', price: 39, costPrice: 15, cat: "🥤 Mixers & Refreshers", type: 'retail', stockQuantity: 100, inStock: true },
+  { id: 9003, name: 'Thums Up', price: 39, costPrice: 15, cat: "🥤 Mixers & Refreshers", type: 'retail', stockQuantity: 100, inStock: true },
   { id: 9004, name: 'Packaged Drinking Water', price: 49, cat: "🥤 Mixers & Refreshers", type: 'retail', stockQuantity: 100, inStock: true },
   { id: 9005, name: 'Red Bull', price: 249, cat: "🥤 Mixers & Refreshers", type: 'retail', stockQuantity: 100, inStock: true },
   { id: 9006, name: 'Ginger Ale', price: 79, cat: "🥤 Mixers & Refreshers", type: 'retail', stockQuantity: 100, inStock: true },
@@ -136,9 +138,9 @@ const INITIAL_CATEGORIES = [
 
 const INITIAL_MENU_ITEMS = [
   // Quick Snacks
-  { id: 101, name: 'Salted Fries', price: 199, type: 'veg', cat: "Quick Snacks", inStock: true },
-  { id: 102, name: 'Peri Peri Fries', price: 229, type: 'veg', cat: "Quick Snacks", inStock: true },
-  { id: 103, name: 'Cheesy Fries', price: 249, type: 'veg', cat: "Quick Snacks", inStock: true },
+  { id: 101, name: 'Salted Fries', price: 199, costPrice: 45, type: 'veg', cat: "Quick Snacks", inStock: true },
+  { id: 102, name: 'Peri Peri Fries', price: 229, costPrice: 55, type: 'veg', cat: "Quick Snacks", inStock: true },
+  { id: 103, name: 'Cheesy Fries', price: 249, costPrice: 65, type: 'veg', cat: "Quick Snacks", inStock: true },
   { id: 104, name: 'Mozzarella Sticks', price: 249, type: 'veg', cat: "Quick Snacks", inStock: true },
   { id: 105, name: 'Veg Fingers', price: 249, type: 'veg', cat: "Quick Snacks", inStock: true },
   { id: 106, name: 'Chicken Popcorn', price: 349, type: 'non-veg', cat: "Quick Snacks", inStock: true },
@@ -354,7 +356,7 @@ const AppTopNavbar = ({ globalSearch, onSearchChange, onToggleSidebar, onViewCha
           <Sunset size={18} color="#64748b" />
           <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Day Close</span>
         </div>
-        <div onClick={() => onViewChange('analytics')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer', padding: '0 4px' }}>
+        <div onClick={() => onViewChange('reports')} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', cursor: 'pointer', padding: '0 4px' }}>
           <BarChart3 size={18} color="#64748b" />
           <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#64748b' }}>Reports</span>
         </div>
@@ -1294,7 +1296,225 @@ const FloorPlanSetupView = ({ tables, setTables, sections, setSections }) => {
   );
 };
 
-/* --- SYSTEM SETTINGS VIEW --- */
+
+/* --- PROFIT & LOSS VIEW --- */
+const ProfitLossView = ({ orderHistory, menuItems }) => {
+  const [dateRange, setDateRange] = useState('all');
+
+  const stats = React.useMemo(() => {
+    let revenue = 0;
+    let cost = 0;
+    let taxCollected = 0;
+    const dailyData = {};
+
+    orderHistory.forEach(order => {
+      revenue += order.subtotal || 0;
+      taxCollected += order.taxes || 0;
+      
+      order.cart.forEach(item => {
+        // Find item in menuItems to get costPrice, fallback to 40% of price
+        const menuItem = menuItems.find(mi => mi.id === item.id);
+        const itemCost = (menuItem?.costPrice || (item.price * 0.4)) * item.qty;
+        cost += itemCost;
+      });
+
+      const day = order.timestamp?.split('T')[0] || 'Unknown';
+      if (!dailyData[day]) dailyData[day] = { revenue: 0, cost: 0, profit: 0 };
+      dailyData[day].revenue += order.subtotal || 0;
+      
+      let orderCost = 0;
+      order.cart.forEach(item => {
+        const menuItem = menuItems.find(mi => mi.id === item.id);
+        orderCost += (menuItem?.costPrice || (item.price * 0.4)) * item.qty;
+      });
+      dailyData[day].cost += orderCost;
+      dailyData[day].profit = dailyData[day].revenue - dailyData[day].cost;
+    });
+
+    const chartData = Object.entries(dailyData).map(([date, val]) => ({
+      date,
+      ...val
+    })).sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    return { totalRevenue: revenue, totalCost: cost, netProfit: revenue - cost, taxCollected, chartData };
+  }, [orderHistory, menuItems]);
+
+  return (
+    <div className="view-container">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+        <div>
+          <h1 style={{ fontSize: '28px', fontWeight: '950', color: '#1e293b', margin: 0 }}>Profit & Loss</h1>
+          <p style={{ color: '#64748b', marginTop: '4px' }}>Analyze your restaurant financial performance</p>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '24px', marginBottom: '32px' }}>
+        <div style={{ background: 'white', padding: '24px', borderRadius: '20px', border: '1px solid #e2e8f0' }}>
+          <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px' }}>TOTAL REVENUE</div>
+          <div style={{ fontSize: '24px', fontWeight: '950', color: '#1e293b' }}>₹{stats.totalRevenue.toLocaleString()}</div>
+        </div>
+        <div style={{ background: 'white', padding: '24px', borderRadius: '20px', border: '1px solid #e2e8f0' }}>
+          <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px' }}>EST. COGS</div>
+          <div style={{ fontSize: '24px', fontWeight: '950', color: '#dc2626' }}>₹{stats.totalCost.toLocaleString()}</div>
+        </div>
+        <div style={{ background: 'white', padding: '24px', borderRadius: '20px', border: '1px solid #e2e8f0' }}>
+          <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px' }}>NET PROFIT</div>
+          <div style={{ fontSize: '24px', fontWeight: '950', color: '#059669' }}>₹{stats.netProfit.toLocaleString()}</div>
+        </div>
+        <div style={{ background: 'white', padding: '24px', borderRadius: '20px', border: '1px solid #e2e8f0' }}>
+          <div style={{ color: '#64748b', fontSize: '13px', fontWeight: 'bold', marginBottom: '8px' }}>PROFIT MARGIN</div>
+          <div style={{ fontSize: '24px', fontWeight: '950', color: '#1e293b' }}>
+            {stats.totalRevenue > 0 ? ((stats.netProfit / stats.totalRevenue) * 100).toFixed(1) : 0}%
+          </div>
+        </div>
+      </div>
+
+      <div style={{ background: 'white', padding: '32px', borderRadius: '24px', border: '1px solid #e2e8f0', height: '400px' }}>
+        <h3 style={{ fontSize: '18px', fontWeight: '900', color: '#1e293b', marginBottom: '24px' }}>Revenue vs Profit Over Time</h3>
+        <ResponsiveContainer width="100%" height="90%">
+          <LineChart data={stats.chartData}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+            <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+            <YAxis stroke="#94a3b8" fontSize={12} tickLine={false} axisLine={false} />
+            <RechartsTooltip />
+            <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={3} dot={{ r: 4 }} name="Revenue" />
+            <Line type="monotone" dataKey="profit" stroke="#10b981" strokeWidth={3} dot={{ r: 4 }} name="Net Profit" />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+};
+
+const CRMView = ({ customers = {} }) => {
+  const customerList = Object.entries(customers).map(([phone, data]) => ({
+    phone,
+    ...data
+  })).sort((a, b) => (b.totalSpent || 0) - (a.totalSpent || 0));
+
+  return (
+    <div className="view-container">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+        <div>
+          <h1 style={{ fontSize: '28px', fontWeight: '950', color: '#1e293b', margin: 0 }}>Customer Management</h1>
+          <p style={{ color: '#64748b', marginTop: '4px' }}>Track loyal customers and their spending habits</p>
+        </div>
+      </div>
+
+      <div style={{ background: 'white', borderRadius: '24px', border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <thead>
+            <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+              <th style={{ padding: '16px 24px', fontSize: '13px', fontWeight: '900', color: '#64748b' }}>CUSTOMER NAME</th>
+              <th style={{ padding: '16px 24px', fontSize: '13px', fontWeight: '900', color: '#64748b' }}>PHONE NUMBER</th>
+              <th style={{ padding: '16px 24px', fontSize: '13px', fontWeight: '900', color: '#64748b' }}>TOTAL VISITS</th>
+              <th style={{ padding: '16px 24px', fontSize: '13px', fontWeight: '900', color: '#64748b' }}>TOTAL SPENT</th>
+              <th style={{ padding: '16px 24px', fontSize: '13px', fontWeight: '900', color: '#64748b' }}>POINTS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {customerList.map((customer, idx) => (
+              <tr key={idx} style={{ borderBottom: '1px solid #f1f5f9' }}>
+                <td style={{ padding: '16px 24px', fontSize: '14px', fontWeight: 'bold' }}>{customer.name || 'Anonymous'}</td>
+                <td style={{ padding: '16px 24px', fontSize: '14px', color: '#64748b' }}>{customer.phone}</td>
+                <td style={{ padding: '16px 24px', fontSize: '14px' }}>{customer.visits || 1}</td>
+                <td style={{ padding: '16px 24px', fontSize: '14px', fontWeight: '900' }}>₹{(customer.totalSpent || 0).toLocaleString()}</td>
+                <td style={{ padding: '16px 24px', fontSize: '14px' }}>
+                   <span style={{ padding: '4px 10px', background: '#fef2f2', color: '#94161c', borderRadius: '100px', fontSize: '12px', fontWeight: 'bold' }}>
+                      {customer.points || 0} pts
+                   </span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+const ReportsView = ({ orderHistory }) => {
+  const exportToExcel = () => {
+    if (orderHistory.length === 0) {
+      alert("No data available to export.");
+      return;
+    }
+
+    const data = orderHistory.map(order => ({
+      'Date': order.timestamp?.split('T')[0],
+      'Customer': order.customerName || 'Walk-in',
+      'Phone': order.phone || '--',
+      'Table': order.tableName || '--',
+      'Payment': order.paymentMethod,
+      'Subtotal': order.subtotal,
+      'Tax': order.taxes,
+      'Grand Total': order.grandTotal
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sales");
+    XLSX.writeFile(workbook, `Sales_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
+  const generatePDFMock = () => {
+    alert("Generating Inventory Report PDF... (Printing view initiated)");
+    window.print();
+  };
+
+  const showPaymentDetails = () => {
+    const methods = orderHistory.reduce((acc, order) => {
+      acc[order.paymentMethod] = (acc[order.paymentMethod] || 0) + order.grandTotal;
+      return acc;
+    }, {});
+    
+    let msg = "Payment Breakdown:\n";
+    Object.entries(methods).forEach(([method, amt]) => {
+      msg += `${method}: ₹${amt.toLocaleString()}\n`;
+    });
+    alert(msg || "No payment data recorded yet.");
+  };
+
+  return (
+    <div className="view-container">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+        <div>
+          <h1 style={{ fontSize: '28px', fontWeight: '950', color: '#1e293b', margin: 0 }}>Reports Hub</h1>
+          <p style={{ color: '#64748b', marginTop: '4px' }}>Export and view comprehensive restaurant data</p>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '24px' }}>
+        <div style={{ background: 'white', padding: '32px', borderRadius: '24px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+          <div style={{ background: '#eff6ff', color: '#2563eb', padding: '16px', borderRadius: '100px', width: 'fit-content', margin: '0 auto 20px' }}>
+            <FileText size={32} />
+          </div>
+          <h3 style={{ fontSize: '18px', fontWeight: '900', color: '#1e293b', marginBottom: '8px' }}>Sales Report</h3>
+          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '24px' }}>Get a detailed breakdown of all sales by date, category, and items.</p>
+          <button onClick={exportToExcel} style={{ width: '100%', padding: '12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>Export Excel</button>
+        </div>
+
+        <div style={{ background: 'white', padding: '32px', borderRadius: '24px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+          <div style={{ background: '#f0fdf4', color: '#16a34a', padding: '16px', borderRadius: '100px', width: 'fit-content', margin: '0 auto 20px' }}>
+            <TrendingUp size={32} />
+          </div>
+          <h3 style={{ fontSize: '18px', fontWeight: '900', color: '#1e293b', marginBottom: '8px' }}>Inventory Value</h3>
+          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '24px' }}>View current stock levels and the total valuation of your inventory.</p>
+          <button onClick={generatePDFMock} style={{ width: '100%', padding: '12px', background: '#10b981', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>Generate PDF</button>
+        </div>
+
+        <div style={{ background: 'white', padding: '32px', borderRadius: '24px', border: '1px solid #e2e8f0', textAlign: 'center' }}>
+          <div style={{ background: '#ffefeb', color: '#ff4d00', padding: '16px', borderRadius: '100px', width: 'fit-content', margin: '0 auto 20px' }}>
+            <PieChart size={32} />
+          </div>
+          <h3 style={{ fontSize: '18px', fontWeight: '900', color: '#1e293b', marginBottom: '8px' }}>Payment Analysis</h3>
+          <p style={{ fontSize: '13px', color: '#64748b', marginBottom: '24px' }}>Analyze which payment methods are most popular with customers.</p>
+          <button onClick={showPaymentDetails} style={{ width: '100%', padding: '12px', background: '#f97316', color: 'white', border: 'none', borderRadius: '12px', fontWeight: 'bold', cursor: 'pointer' }}>View Details</button>
+        </div>
+      </div>
+    </div>
+  );
+};
 /* --- ADVANCED GLOBAL SETTINGS VIEW --- */
 const GlobalSettingsView = ({ settings, onSaveSettings, onClearHistory, onFullReset }) => {
   const [localSettings, setLocalSettings] = useState(settings);
@@ -1465,122 +1685,374 @@ const GlobalSettingsView = ({ settings, onSaveSettings, onClearHistory, onFullRe
 };
 
 /* --- SYSTEM SETTINGS VIEW --- */
+const BillPreview = ({ settings }) => {
+  const { header, body, footer, advanced, printerProfiles, selectedProfileId } = settings;
+  const profile = printerProfiles.find(p => p.id === selectedProfileId) || printerProfiles[0];
+  const paperWidth = profile?.paperWidth === '58mm' ? '240px' : profile?.paperWidth === 'A4' ? '100%' : '300px';
+
+  const previewItems = [
+    { name: 'Margherita Pizza', qty: 1, price: 399 },
+    { name: 'Peri Peri Fries (Large)', qty: 2, price: 229 },
+    { name: 'Cold Coffee with Ice Cream', qty: 1, price: 219 }
+  ];
+
+  const subtotal = previewItems.reduce((acc, i) => acc + (i.price * i.qty), 0);
+  const tax = subtotal * 0.05;
+  const total = subtotal + tax;
+
+  return (
+    <div style={{
+      background: '#fff',
+      width: paperWidth,
+      margin: '0 auto',
+      padding: `${advanced.margins.top}mm ${advanced.margins.right}mm ${advanced.margins.bottom}mm ${advanced.margins.left}mm`,
+      boxShadow: '0 0 40px rgba(0,0,0,0.1)',
+      fontFamily: header.fontFamily === 'monospace' ? 'monospace' : 'inherit',
+      color: '#000',
+      minHeight: '400px',
+      transition: 'all 0.3s ease'
+    }}>
+      {/* Header */}
+      <div style={{ textAlign: header.logoAlign, marginBottom: `${header.marginBottom}px`, marginTop: `${header.marginTop}px` }}>
+        {header.showLogo && (
+          <div style={{ 
+            width: `${header.logoSize}px`, 
+            height: `${header.logoSize}px`, 
+            background: '#f1f5f9', 
+            borderRadius: '8px', 
+            margin: header.logoAlign === 'center' ? '0 auto 12px' : header.logoAlign === 'right' ? '0 0 12px auto' : '0 auto 12px 0',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '2px dashed #cbd5e1'
+          }}>
+            <ImageIcon size={24} color="#94a3b8" />
+          </div>
+        )}
+        <div style={{ 
+          whiteSpace: 'pre-line', 
+          fontSize: `${header.fontSize}px`, 
+          fontWeight: header.fontWeight,
+          lineHeight: header.lineSpacing,
+          fontFamily: header.fontFamily === 'monospace' ? 'monospace' : 'inherit'
+        }}>
+          {header.topText}
+        </div>
+      </div>
+
+      <div style={{ borderBottom: body.separator === 'solid' ? '1px solid #000' : body.separator === 'dashed' ? '1px dashed #000' : 'none', margin: '10px 0' }}></div>
+
+      {/* Body */}
+      <div style={{ margin: '10px 0' }}>
+        <div style={{ display: 'flex', fontSize: '10px', fontWeight: 'bold', borderBottom: '1px solid #eee', paddingBottom: '4px', marginBottom: '8px' }}>
+          {body.showQty && <div style={{ flex: 1 }}>QTY</div>}
+          <div style={{ flex: 3 }}>ITEM</div>
+          {body.showPrice && <div style={{ flex: 1, textAlign: 'right' }}>PRICE</div>}
+          {body.showTotal && <div style={{ flex: 1, textAlign: 'right' }}>TOTAL</div>}
+        </div>
+        {previewItems.map((item, i) => (
+          <div key={i} style={{ display: 'flex', marginBottom: '6px', alignItems: 'flex-start' }}>
+            {body.showQty && <div style={{ flex: 1, fontSize: '11px' }}>{item.qty}</div>}
+            <div style={{ flex: 3, fontSize: `${body.itemNameSize}px`, fontWeight: body.itemNameWeight }}>{item.name}</div>
+            {body.showPrice && <div style={{ flex: 1, textAlign: 'right', fontSize: `${body.itemPriceSize}px` }}>{item.price}</div>}
+            {body.showTotal && <div style={{ flex: 1, textAlign: 'right', fontSize: `${body.itemPriceSize}px`, fontWeight: 'bold' }}>{item.price * item.qty}</div>}
+          </div>
+        ))}
+      </div>
+
+      <div style={{ borderBottom: body.separator === 'solid' ? '1px solid #000' : body.separator === 'dashed' ? '1px dashed #000' : 'none', margin: '10px 0' }}></div>
+
+      {/* Summary */}
+      <div style={{ textAlign: 'right', fontSize: '12px' }}>
+        <div style={{ marginBottom: '4px' }}>Subtotal: ₹{subtotal.toFixed(2)}</div>
+        {advanced.showTaxBreakdown && <div style={{ marginBottom: '4px' }}>GST (5%): ₹{tax.toFixed(2)}</div>}
+        <div style={{ fontSize: '16px', fontWeight: 'bold', marginTop: '8px' }}>Grand Total: ₹{total.toFixed(2)}</div>
+      </div>
+
+      {/* Advanced - QR */}
+      {advanced.showQRCode && (
+        <div style={{ textAlign: 'center', margin: '20px 0' }}>
+          <div style={{ width: '80px', height: '80px', background: '#f1f5f9', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', border: '1px solid #eee' }}>
+            <RefreshCw size={24} color="#94a3b8" />
+          </div>
+          <div style={{ fontSize: '8px', marginTop: '4px', color: '#64748b' }}>Scan for Payment</div>
+        </div>
+      )}
+
+      {/* Footer */}
+      <div style={{ 
+        textAlign: footer.align, 
+        marginTop: `${footer.marginTop}px`, 
+        marginBottom: `${footer.marginBottom}px`,
+        fontSize: `${footer.fontSize}px`,
+        fontWeight: footer.fontWeight,
+        whiteSpace: 'pre-line',
+        fontFamily: footer.fontFamily === 'monospace' ? 'monospace' : 'inherit'
+      }}>
+        {footer.bottomText}
+      </div>
+
+      {/* Order Info */}
+      <div style={{ fontSize: '9px', textAlign: 'center', color: '#64748b', marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '10px' }}>
+        Order #4592 • Table 12 • 28/03/2026 18:45
+      </div>
+    </div>
+  );
+};
+
 const PrinterSettingsView = ({ settings, onSaveSettings, categories }) => {
   const [localSettings, setLocalSettings] = useState(settings);
+  const [activeTab, setActiveTab] = useState('general');
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setLocalSettings(prev => ({ ...prev, [name]: type === 'checkbox' ? checked : value }));
-  };
-
-  const toggleCategory = (cat) => {
+  const updateNested = (path, value) => {
     setLocalSettings(prev => {
-      const current = prev.separatePrintCategories || [];
-      if (current.includes(cat)) {
-        return { ...prev, separatePrintCategories: current.filter(c => c !== cat) };
-      } else {
-        return { ...prev, separatePrintCategories: [...current, cat] };
+      const keys = path.split('.');
+      const newSettings = JSON.parse(JSON.stringify(prev));
+      let current = newSettings;
+      for (let i = 0; i < keys.length - 1; i++) {
+        current = current[keys[i]];
       }
+      current[keys[keys.length - 1]] = value;
+      return newSettings;
     });
   };
 
+  const tabs = [
+    { id: 'general', label: 'Printer', icon: HardDrive },
+    { id: 'header', label: 'Header', icon: Type },
+    { id: 'body', label: 'Bill Body', icon: Layers },
+    { id: 'footer', label: 'Footer', icon: FileText },
+    { id: 'advanced', label: 'Advanced', icon: Settings2 }
+  ];
+
   const handleSave = () => {
     onSaveSettings(localSettings);
-    alert('Printer Settings Saved Successfully!');
+    alert('Modular Printer Configuration Saved!');
   };
 
   return (
-    <div className="view-container animate-fade-in no-scrollbar">
-      <div style={{ maxWidth: '600px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        <div style={{ background: 'white', padding: '32px', borderRadius: 'var(--radius-md)', boxShadow: '0 4px 6px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-          <h2 style={{ fontSize: '20px', fontWeight: 'bold', borderBottom: '2px solid #f3f4f6', paddingBottom: '12px', display: 'flex', alignItems: 'center', gap: '10px', color: '#1f2937' }}>
-            <Printer size={24} color="#64748b" /> Hardware Receipt Configuration
-          </h2>
-
+    <div style={{ height: '100%', display: 'flex', background: '#f8fafc', overflow: 'hidden' }} className="animate-fade-in">
+      {/* Sidebar Controls */}
+      <div style={{ width: '500px', display: 'flex', flexDirection: 'column', background: 'white', borderRight: '1px solid #e2e8f0', shadow: 'xl' }}>
+        <div style={{ padding: '24px', borderBottom: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#374151', marginBottom: '8px' }}>Bill Header (Text Logo)</label>
-            <input type="text" name="billHeader" value={localSettings.billHeader} onChange={handleChange} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db', color: '#111827' }} />
+            <h2 style={{ fontSize: '20px', fontWeight: '900', color: '#1e293b' }}>Printer Architecture</h2>
+            <p style={{ fontSize: '12px', color: '#64748b' }}>Customize every pixel of your output</p>
           </div>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#374151', marginBottom: '8px' }}>Bill Footer Message</label>
-            <input type="text" name="billFooter" value={localSettings.billFooter} onChange={handleChange} style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db', color: '#111827' }} />
-          </div>
-
-          <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <label style={{ fontSize: '13px', fontWeight: 'bold', color: '#374151' }}>Custom KOT Stations</label>
-              <button onClick={() => {
-                const name = window.prompt("Enter new Station Name (e.g. Beverages, Pizza):");
-                if (name) {
-                  setLocalSettings(prev => ({
-                    ...prev,
-                    printerStations: [...(prev.printerStations || []), { id: Date.now().toString(), name, categories: [] }]
-                  }));
-                }
-              }} style={{ padding: '6px 12px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '6px', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>+ Add Station</button>
-            </div>
-
-            <p style={{ fontSize: '11px', color: '#64748b', marginBottom: '16px' }}>Group categories into stations. Any category not assigned to a station will print together as "Main Kitchen".</p>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-              {(localSettings.printerStations || []).map(station => (
-                <div key={station.id} style={{ padding: '16px', background: '#f8fafc', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-                    <div style={{ fontWeight: 'bold', fontSize: '14px', color: '#1e293b' }}>{station.name}</div>
-                    <button onClick={() => {
-                      if (window.confirm('Remove this station?')) {
-                        setLocalSettings(prev => ({ ...prev, printerStations: prev.printerStations.filter(s => s.id !== station.id) }));
-                      }
-                    }} style={{ color: '#ef4444', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}>Remove</button>
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                    {categories.map(cat => {
-                      const isSelected = station.categories.includes(cat);
-                      return (
-                        <label key={cat} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', fontSize: '12px', border: `1px solid ${isSelected ? 'var(--primary)' : '#d1d5db'}`, padding: '4px 10px', borderRadius: '20px', background: isSelected ? 'var(--primary)' : 'white', color: isSelected ? 'white' : '#4b5563', cursor: 'pointer', transition: 'all 0.2s' }}>
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => {
-                              setLocalSettings(prev => ({
-                                ...prev,
-                                printerStations: prev.printerStations.map(s => {
-                                  if (s.id === station.id) {
-                                    return { ...s, categories: isSelected ? s.categories.filter(c => c !== cat) : [...s.categories, cat] };
-                                  }
-                                  // Auto-remove from other stations if selected here
-                                  return { ...s, categories: s.categories.filter(c => c !== cat) };
-                                })
-                              }));
-                            }}
-                            style={{ display: 'none' }}
-                          />
-                          {cat}
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '20px' }}>
-            <label style={{ display: 'block', fontSize: '13px', fontWeight: 'bold', color: '#374151', marginBottom: '12px' }}>Print Typography</label>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-              <select name="printFontFamily" value={localSettings.printFontFamily} onChange={handleChange} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db', background: 'white', fontSize: '12px', color: '#111827' }}>
-                <option value="Helvetica, Arial, sans-serif">Sans-Serif</option>
-                <option value="'Courier New', Courier, monospace">Monospace</option>
-              </select>
-              <input type="number" name="printFontSize" value={localSettings.printFontSize} onChange={handleChange} style={{ padding: '10px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '12px', color: '#111827' }} />
-            </div>
-          </div>
-
-          <button onClick={handleSave} style={{ marginTop: '20px', padding: '14px', background: localSettings.accentColor, color: 'white', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', boxShadow: `0 4px 6px -1px ${localSettings.accentColor}30` }}>
-            Save Printer Configurations
+          <button onClick={handleSave} style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: 'bold', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <Save size={16} /> Save All
           </button>
         </div>
+
+        {/* Tab Navigation */}
+        <div style={{ display: 'flex', background: '#f8fafc', padding: '8px' }}>
+          {tabs.map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              style={{
+                flex: 1, padding: '12px 8px', borderRadius: '8px', border: 'none', background: activeTab === tab.id ? 'white' : 'transparent',
+                color: activeTab === tab.id ? 'var(--primary)' : '#64748b', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center',
+                gap: '4px', transition: 'all 0.2s', boxShadow: activeTab === tab.id ? '0 4px 6px -1px rgba(0,0,0,0.05)' : 'none'
+              }}
+            >
+              <tab.icon size={18} />
+              <span style={{ fontSize: '10px', fontWeight: 'bold' }}>{tab.label}</span>
+            </button>
+          ))}
+        </div>
+
+        <div style={{ flex: 1, overflowY: 'auto', padding: '24px' }} className="no-scrollbar">
+          {activeTab === 'general' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: '900', color: '#1e293b', display: 'block', marginBottom: '12px' }}>Printer Profiles</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {localSettings.printerProfiles.map(p => (
+                    <div key={p.id} onClick={() => updateNested('selectedProfileId', p.id)} style={{ padding: '16px', borderRadius: '12px', border: '2px solid', borderColor: localSettings.selectedProfileId === p.id ? 'var(--primary)' : '#f1f5f9', background: localSettings.selectedProfileId === p.id ? '#fff1f2' : 'white', cursor: 'pointer' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontWeight: 'bold', fontSize: '14px' }}>{p.name}</span>
+                        <span style={{ fontSize: '10px', background: '#fff', padding: '2px 8px', borderRadius: '4px', border: '1px solid #eee' }}>{p.paperWidth}</span>
+                      </div>
+                    </div>
+                  ))}
+                  <button style={{ padding: '12px', borderRadius: '12px', border: '2px dashed #e2e8f0', background: 'transparent', color: '#64748b', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>+ Add New Profile</button>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: '900', color: '#1e293b', display: 'block', marginBottom: '8px' }}>Paper Width Scaling</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px' }}>
+                  {['58mm', '80mm', 'A4'].map(w => (
+                    <button key={w} onClick={() => {
+                      const newProfiles = localSettings.printerProfiles.map(p => p.id === localSettings.selectedProfileId ? { ...p, paperWidth: w } : p);
+                      updateNested('printerProfiles', newProfiles);
+                    }} style={{ padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', background: localSettings.printerProfiles.find(p => p.id === localSettings.selectedProfileId)?.paperWidth === w ? 'var(--primary)' : 'white', color: localSettings.printerProfiles.find(p => p.id === localSettings.selectedProfileId)?.paperWidth === w ? 'white' : '#1e293b', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>{w}</button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: '900', color: '#1e293b', display: 'block', marginBottom: '8px' }}>Interface Type</label>
+                <select style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none' }}>
+                  <option>Web Serial (USB Thermal)</option>
+                  <option>Network (IP: 192.168.1.100)</option>
+                  <option>System Default (PDF/AirPrint)</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'header' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Logo Integration</span>
+                <input type="checkbox" checked={localSettings.header.showLogo} onChange={e => updateNested('header.showLogo', e.target.checked)} />
+              </div>
+              
+              {localSettings.header.showLogo && (
+                <div style={{ padding: '16px', border: '1px solid #f1f5f9', borderRadius: '12px', background: '#f8fafc' }}>
+                  <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                    {['left', 'center', 'right'].map(align => (
+                        <button key={align} onClick={() => updateNested('header.logoAlign', align)} style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', background: localSettings.header.logoAlign === align ? 'white' : 'transparent', color: localSettings.header.logoAlign === align ? 'var(--primary)' : '#64748b' }}>
+                          <AlignCenter size={16} style={{ margin: '0 auto' }} />
+                        </button>
+                    ))}
+                  </div>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold' }}>Logo Size: {localSettings.header.logoSize}px</label>
+                  <input type="range" min="30" max="150" value={localSettings.header.logoSize} onChange={e => updateNested('header.logoSize', parseInt(e.target.value))} style={{ width: '100%', marginTop: '8px' }} />
+                </div>
+              )}
+
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '8px' }}>Top Header Text (Multi-line)</label>
+                <textarea 
+                  rows="4" 
+                  value={localSettings.header.topText} 
+                  onChange={e => updateNested('header.topText', e.target.value)}
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px', outline: 'none' }}
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div>
+                   <label style={{ fontSize: '11px', fontWeight: 'bold' }}>Font Size</label>
+                   <input type="number" value={localSettings.header.fontSize} onChange={e => updateNested('header.fontSize', parseInt(e.target.value))} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold' }}>Font Weight</label>
+                  <select value={localSettings.header.fontWeight} onChange={e => updateNested('header.fontWeight', e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                    <option value="normal">Normal</option>
+                    <option value="bold">Bold</option>
+                    <option value="900">Black</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'body' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Information Columns</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                 {[
+                   { id: 'showQty', label: 'Quantity' },
+                   { id: 'showPrice', label: 'Rate' },
+                   { id: 'showTotal', label: 'Total' }
+                 ].map(col => (
+                   <label key={col.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', padding: '10px 14px', borderRadius: '8px', border: '1px solid #f1f5f9', cursor: 'pointer' }}>
+                     <input type="checkbox" checked={localSettings.body[col.id]} onChange={e => updateNested(`body.${col.id}`, e.target.checked)} />
+                     <span style={{ fontSize: '12px' }}>{col.label}</span>
+                   </label>
+                 ))}
+              </div>
+
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '12px' }}>Item Typography</label>
+                <div style={{ padding: '16px', borderRadius: '12px', background: '#f8fafc', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 'bold' }}>Item Name Size</span>
+                      <input type="number" value={localSettings.body.itemNameSize} onChange={e => updateNested('body.itemNameSize', parseInt(e.target.value))} style={{ width: '60px', padding: '4px', textAlign: 'center' }} />
+                   </div>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 'bold' }}>Separator Style</span>
+                      <select value={localSettings.body.separator} onChange={e => updateNested('body.separator', e.target.value)} style={{ padding: '4px', borderRadius: '4px' }}>
+                        <option value="solid">Solid Line (────)</option>
+                        <option value="dashed">Dashed ( - - - )</option>
+                        <option value="none">Empty Space</option>
+                      </select>
+                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'footer' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '8px' }}>Footer Branding & Policy</label>
+                <textarea 
+                  rows="6" 
+                  value={localSettings.footer.bottomText} 
+                  onChange={e => updateNested('footer.bottomText', e.target.value)}
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px', outline: 'none' }}
+                />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                {['left', 'center', 'right'].map(align => (
+                    <button key={align} onClick={() => updateNested('footer.align', align)} style={{ padding: '8px', borderRadius: '8px', border: '1px solid #e2e8f0', background: localSettings.footer.align === align ? 'var(--primary)' : 'white', color: localSettings.footer.align === align ? 'white' : '#64748b' }}>
+                      {align.toUpperCase()}
+                    </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'advanced' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              <div style={{ padding: '16px', borderRadius: '12px', background: '#fffbeb', border: '1px solid #fef3c7' }}>
+                <h4 style={{ fontSize: '12px', fontWeight: 'bold', color: '#92400e', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}><AlertTriangle size={14}/> Advanced Hardening</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                     <input type="checkbox" checked={localSettings.advanced.showTaxBreakdown} onChange={e => updateNested('advanced.showTaxBreakdown', e.target.checked)} />
+                     Enable GST/Tax Breakdown
+                   </label>
+                   <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}>
+                     <input type="checkbox" checked={localSettings.advanced.showQRCode} onChange={e => updateNested('advanced.showQRCode', e.target.checked)} />
+                     Print Unified UPI QR Code
+                   </label>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '8px' }}>Page Margins (mm)</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                  {['top', 'bottom', 'left', 'right'].map(m => (
+                    <div key={m} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', padding: '8px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                      <span style={{ fontSize: '10px', textTransform: 'capitalize' }}>{m}</span>
+                      <input type="number" value={localSettings.advanced.margins[m]} onChange={e => updateNested(`advanced.margins.${m}`, parseInt(e.target.value))} style={{ width: '40px', border: 'none', textAlign: 'right', fontWeight: 'bold' }} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Real-time Preview */}
+      <div style={{ flex: 1, padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', position: 'relative' }}>
+          <div style={{ position: 'absolute', top: '24px', left: '24px', display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b' }}>
+             <Eye size={16} /> <span style={{ fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase' }}>Live WYSIWYG Rendering</span>
+          </div>
+
+          <BillPreview settings={localSettings} />
+
+          <div style={{ marginTop: '32px', textAlign: 'center' }}>
+             <p style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 'bold' }}>Simulation matches the physical output of a {localSettings.printerProfiles.find(p => p.id === localSettings.selectedProfileId)?.paperWidth} printer</p>
+          </div>
       </div>
     </div>
   );
@@ -1922,54 +2394,30 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
     seqNumber = await get(key) || 1;
     await set(key, seqNumber + 1);
   } catch (e) { }
-  const formattedSeq = seqNumber.toString().padStart(4, '0');
-
-  let settings = { billHeader: 'Tyde Cafe', billFooter: 'Sea you soon — under the moon', categorizedKOT: false, billLayout: 'standard' };
-  try {
-    const rawSettings = await get('pos_printer_settings');
-    if (rawSettings) {
-      settings = rawSettings;
-    }
-  } catch (e) {
-    console.error("Failed to parse printer settings", e);
-  }
 
   try {
+    const printerConfig = await get('pos_printer_settings') || {};
+    const generator = new EscPosGenerator(printerConfig);
+
     if (!('serial' in navigator)) throw new Error('Web Serial API not supported.');
     const port = await navigator.serial.requestPort();
     await port.open({ baudRate: 9600 });
-
     const writer = port.writable.getWriter();
-    const textEncoder = new TextEncoder();
 
-    const init = new Uint8Array([0x1B, 0x40]);
-    const boldOn = new Uint8Array([0x1B, 0x45, 1]);
-    const boldOff = new Uint8Array([0x1B, 0x45, 0]);
-    const centerAlign = new Uint8Array([0x1B, 0x61, 1]);
-    const leftAlign = new Uint8Array([0x1B, 0x61, 0]);
-    const rightAlign = new Uint8Array([0x1B, 0x61, 2]);
-    const cutPaper = new Uint8Array([0x1D, 0x56, 0x41, 0x08]);
-
-    const w = async (bytes) => await writer.write(bytes);
-    const wT = async (text) => await writer.write(textEncoder.encode(text));
 
     if (type === 'KOT') {
       let groupsToPrint = [];
-
-      if (settings.printerStations && settings.printerStations.length > 0) {
-        // Station logic
+      if (printerConfig.printerStations && printerConfig.printerStations.length > 0) {
         const mainItems = [];
-        const stationsMap = {}; // stationName -> items
-
+        const stationsMap = {};
         orderData.items.forEach(item => {
           let assignedStation = null;
-          for (const st of settings.printerStations) {
+          for (const st of printerConfig.printerStations) {
             if (st.categories.includes(item.cat)) {
               assignedStation = st.name;
               break;
             }
           }
-
           if (assignedStation) {
             if (!stationsMap[assignedStation]) stationsMap[assignedStation] = [];
             stationsMap[assignedStation].push(item);
@@ -1977,425 +2425,31 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
             mainItems.push(item);
           }
         });
-
-        // Push separated groups
         Object.entries(stationsMap).forEach(([stName, items]) => {
-          groupsToPrint.push({ title: `Station: ${stName}`, items });
+          groupsToPrint.push({ title: stName, items });
         });
-
-        // Push remaining main items on 1 KOT
-        if (mainItems.length > 0) {
-          groupsToPrint.push({ title: 'Main Kitchen', items: mainItems });
-        }
+        if (mainItems.length > 0) groupsToPrint.push({ title: 'Main Kitchen', items: mainItems });
       } else {
-        // Print all items together on 1 KOT
-        groupsToPrint = [{ title: 'All Items', items: orderData.items }];
+        groupsToPrint = [{ title: 'KOT', items: orderData.items }];
       }
 
-      // Loop through and print each required KOT slip and CUT PAPER between them
       for (const group of groupsToPrint) {
-        if (group.items.length === 0) continue;
-
-        await w(init);
-        await w(centerAlign);
-
-        const now = new Date();
-        const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
-        const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-        await wT(`${dateStr} ${timeStr}\n`);
-
-        await wT(`${settings.billHeader || 'Tyde Cafe'}\n`);
-        await wT(`KOT - #${formattedSeq}\n`);
-        await wT(`${orderData.orderType || 'Dine In'}\n`);
-        await wT(`Table No: ${orderData.tableName}\n`);
-        if (orderData.orderId) await wT(`Order No: ${orderData.orderId}\n`);
-        if (orderData.customerName) await wT(`Customer Name: ${orderData.customerName}\n`);
-        await wT("--------------------------------\n");
-
-        await w(leftAlign);
-        await wT("Item        Special Note   Qty\n");
-        await wT("--------------------------------\n");
-
-        for (const item of group.items) {
-          const nameStr = item.name.substring(0, 11).padEnd(12, ' ');
-          let noteText = item.note ? item.note.substring(0, 14) : '--';
-          const noteStr = noteText.padEnd(15, ' ');
-          const qtyStr = item.qty.toString().padStart(5, ' ');
-          await wT(`${nameStr}${noteStr}${qtyStr}\n`);
-        }
-        await wT("--------------------------------\n");
-        await w(centerAlign);
-        await wT("\n\n\n\n\n");
-
-        // This command physically cuts the paper for the specific slip on modern thermal printers
-        await w(cutPaper);
+        const bytes = generator.generateKOT(group, group.title);
+        await writer.write(bytes);
       }
     } else {
-      // Standard Print (Bill or Single KOT)
-      await w(init);
-      await w(centerAlign);
-
-      const now = new Date();
-      const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' }).replace(/\//g, '/');
-      const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-
-      if (type === 'BILL') {
-        if (settings.billLayout === 'bold') await w(boldOn);
-        await w(centerAlign);
-        await wT(`${settings.billHeader || 'Tyde Cafe'}\n`);
-        if (settings.billLayout === 'bold') await w(boldOff);
-        await wT("Nerul Ferry Terminal\n");
-        await wT("--------------------------------\n");
-        await w(leftAlign);
-        await w(boldOn);
-        await wT(`Name: ${(orderData.customerName && orderData.customerName !== 'Walk-In') ? orderData.customerName : '________________'}\n`);
-        await w(boldOff);
-        await wT("--------------------------------\n");
-        const dateLine = `Date: ${dateStr}`.padEnd(16, ' ');
-        await wT(`${dateLine}Dine In: `);
-        await w(boldOn);
-        await wT(`${orderData.tableName || ''}\n`);
-        await w(boldOff);
-        await wT(`${timeStr}\n`);
-        await wT(`Cashier: biller   Bill No.: ${formattedSeq}\n`);
-        await wT("--------------------------------\n");
-        await w(boldOn);
-        await wT("Item              Qty. Price Amount\n");
-        await w(boldOff);
-        await wT("--------------------------------\n");
-
-        let totalQty = 0;
-        for (const item of orderData.items) {
-          totalQty += item.qty;
-          const nameStr = item.name.substring(0, 16).padEnd(17, ' ');
-          const qtyStr = item.qty.toString().padStart(3, ' ');
-          const priceStr = item.price.toFixed(2).padStart(6, ' ');
-          const amtStr = (item.price * item.qty).toFixed(2).padStart(7, ' ');
-          await wT(`${nameStr}${qtyStr} ${priceStr} ${amtStr}\n`);
-        }
-        await wT("--------------------------------\n");
-        await w(rightAlign);
-
-        const subtotalStr = (orderData.subtotal || 0).toFixed(2).padStart(8, ' ');
-        await wT(` Total Qty: ${totalQty.toString().padEnd(3, ' ')}   Sub   ${subtotalStr}\n`);
-        await wT(`                  Total          \n`);
-
-        if (orderData.serviceCharge > 0) {
-          const serviceChargeStr = (orderData.serviceCharge || 0).toFixed(2).padStart(8, ' ');
-          await wT(` Service Charge          ${serviceChargeStr}\n`);
-          await wT(`     (Optional)                  \n`);
-        }
-
-        await wT("--------------------------------\n");
-
-        const roundOffStr = (orderData.roundOff > 0 ? '+' : '') + (orderData.roundOff || 0).toFixed(2).padStart(4, ' ');
-        await wT(`              Round off     ${roundOffStr}\n`);
-
-        await w(boldOn);
-        const gTotalStr = (orderData.grandTotal || 0).toFixed(2).padStart(8, ' ');
-        await wT(`      Grand Total     ₹${gTotalStr}\n`);
-        await w(boldOff);
-        await wT("--------------------------------\n");
-        await w(centerAlign);
-        await wT(`   ${settings.billFooter || 'Sea you soon — under the moon'} \n`);
-
-      } else {
-        // --- KOT PRINTING ---
-        if (settings.billLayout === 'bold') await w(boldOn);
-        await wT(`${dateStr} ${timeStr}\n`);
-
-        const kotNo = Math.floor(1 + Math.random() * 99);
-        await wT(`KOT - ${kotNo}\n`);
-
-        await wT(`${orderData.orderType || 'Dine In'}\n`);
-        if (orderData.isReprint) await wT(`*** DUPLICATE KOT ***\n`);
-        if (orderData.tableName) await wT(`Table: ${orderData.tableName}\n`);
-        if (orderData.orderId) await wT(`Order#: ${orderData.orderId}\n`);
-        if (orderData.customerName) await wT(`Customer: ${orderData.customerName}\n`);
-        if (settings.billLayout === 'bold') await w(boldOff);
-
-        if (settings.billLayout !== 'minimal') {
-          await wT("--------------------------------\n");
-        } else {
-          await wT("\n");
-        }
-
-        await w(leftAlign);
-
-        if (settings.billLayout === 'compact' || settings.billLayout === 'minimal') {
-          if (settings.billLayout !== 'minimal') await wT("Item           Qty\n--------------------------------\n");
-          for (const item of orderData.items) {
-            const nameStr = item.name.substring(0, 15).padEnd(16, ' ');
-            await wT(`${nameStr}${item.qty}\n`);
-          }
-        } else if (settings.billLayout === 'modern') {
-          await wT("Qty   Item\n--------------------------------\n");
-          for (const item of orderData.items) {
-            const qtyStr = item.qty.toString().padEnd(6, ' ');
-            const nameStr = item.name.substring(0, 25);
-            await wT(`${qtyStr}${nameStr}\n`);
-          }
-        } else if (settings.billLayout === 'bold') {
-          await w(boldOn);
-          await wT("ITEM                  QTY\n================================\n");
-          for (const item of orderData.items) {
-            const nameStr = item.name.substring(0, 20).padEnd(22, ' ');
-            const qtyStr = item.qty.toString();
-            await wT(`${nameStr}${qtyStr}\n`);
-          }
-          await w(boldOff);
-          await wT("================================\n");
-        } else {
-          // standard layout matched perfectly to user provided image
-          await wT("Item        Special Note   Qty\n");
-          await wT("--------------------------------\n");
-          for (const item of orderData.items) {
-            const nameStr = item.name.substring(0, 11).padEnd(12, ' ');
-            let noteText = item.note ? item.note.substring(0, 14) : '--';
-            const noteStr = noteText.padEnd(15, ' ');
-            const qtyStr = item.qty.toString().padStart(5, ' ');
-            await wT(`${nameStr}${noteStr}${qtyStr}\n`);
-          }
-        }
-
-        if (settings.billLayout !== 'minimal' && settings.billLayout !== 'bold') {
-          await wT("--------------------------------\n");
-        }
-      }
-
-      // Only printing KOT layout per user request (no grand total or pricing footer)
-
-      await wT("\n\n\n\n\n");
-      await w(cutPaper);
+      // BILL
+      const bytes = generator.generateBill(orderData);
+      await writer.write(bytes);
     }
 
     writer.releaseLock();
     await port.close();
-  } catch (error) {
-    console.warn("Direct Printing Hardware Handshake Failed. Emulating instead.", error);
-
-    // Fallback: Generate a simplified HTML representation for the browser print queue
-    // tailored to 80mm thermal paper widths
-    let printContent = `
-      <div style="width: 80mm; font-family: ${settings.printFontFamily || 'Helvetica, Arial, sans-serif'}; font-size: ${settings.printFontSize || '13'}px; font-weight: ${settings.printFontWeight || 'normal'}; color: #000; background: white; margin: 0 auto;">
-        `;
-
-    const now = new Date();
-    const dateStr = now.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit' });
-    const timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-
-    printContent += `<div style="text-align: center;">`;
-
-    if (type === 'BILL') {
-      const totalQty = orderData.items.reduce((acc, item) => acc + item.qty, 0);
-
-      printContent += `
-          <h2 style="font-size: 22px; font-weight: 800; margin: 0 0 2px 0;">${settings.billHeader || 'Tyde Cafe'}</h2>
-          <div style="font-size: 14px; margin-bottom: 8px;">Nerul Ferry Terminal</div>
-
-          <div style="border-top: 1.5px solid black; margin: 5px 0;"></div>
-          <div style="text-align: left; font-size: 15px; font-weight: bold; margin-bottom: 2px;">
-            Name: ${(orderData.customerName && orderData.customerName !== 'Walk-In') ? orderData.customerName : '________________'}
-          </div>
-          <div style="border-top: 1.5px solid black; margin: 5px 0;"></div>
-
-          <div style="display: flex; justify-content: space-between; text-align: left; font-size: 14px; margin-bottom: 2px;">
-            <div style="flex: 1.2;">
-              <div>Date: ${dateStr}</div>
-              <div style="margin-top: 2px;">${timeStr}</div>
-              <div style="margin-top: 2px;">Cashier: biller</div>
-            </div>
-            <div style="flex: 1; text-align: right;">
-              <div>Dine In: <span style="font-weight: bold;">${orderData.tableName || ''}</span></div>
-              <div style="margin-top: 18px;">Bill No.: ${formattedSeq}</div>
-            </div>
-          </div>
-
-          <div style="border-top: 1.5px solid black; margin: 8px 0;"></div>
-
-          <table style="width: 100%; text-align: left; font-size: 14px; border-collapse: collapse;">
-            <thead>
-              <tr style="border-bottom: 1.5px solid black;">
-                <th style="font-weight: bold; padding-bottom: 6px;">Item</th>
-                <th style="font-weight: bold; text-align: right; padding-bottom: 6px;">Qty.</th>
-                <th style="font-weight: bold; text-align: right; padding-bottom: 6px;">Price</th>
-                <th style="font-weight: bold; text-align: right; padding-bottom: 6px;">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              `;
-      for (let item of orderData.items) {
-        printContent += `<tr>
-             <td style="padding-top: 6px;">${item.name}</td>
-             <td style="text-align: right; padding-top: 6px;">${item.qty}</td>
-             <td style="text-align: right; padding-top: 6px;">${item.price.toFixed(2)}</td>
-             <td style="text-align: right; padding-top: 6px;">${(item.price * item.qty).toFixed(2)}</td>
-           </tr>`;
-      }
-      printContent += `
-            </tbody>
-          </table>
-
-          <div style="border-top: 1.5px solid black; margin: 8px 0;"></div>
-
-          <div style="display: flex; font-size: 14px; text-align: right; margin-bottom: 10px;">
-            <div style="flex: 1.5; text-align: left;">
-              Total Qty: ${totalQty}
-            </div>
-            <div style="flex: 1.5; text-align: right; padding-right: 20px;">
-               <div>Sub</div>
-               <div>Total</div>
-            </div>
-            <div style="flex: 1; text-align: right;">
-               <div>${(orderData.subtotal || 0).toFixed(2)}</div>
-            </div>
-          </div>
-
-          ${orderData.serviceCharge > 0 ? `
-          <div style="display: flex; font-size: 14px; text-align: right; margin-bottom: 10px;">
-            <div style="flex: 1.5;"></div>
-            <div style="flex: 1.5; text-align: right; padding-right: 20px;">
-               <div>Service Charge</div>
-               <div style="font-size: 12px;">(Optional)</div>
-            </div>
-            <div style="flex: 1; text-align: right;">
-               <div>${(orderData.serviceCharge || 0).toFixed(2)}</div>
-            </div>
-          </div>
-          ` : ''}
-
-          <div style="border-top: 1.5px solid black; margin: 8px 0;"></div>
-
-          <div style="display: flex; justify-content: flex-end; font-size: 12px; margin-bottom: 4px;">
-            <div style="margin-right: 15px;">Round off</div>
-            <div>${orderData.roundOff > 0 ? '+' : ''}${(orderData.roundOff || 0).toFixed(2)}</div>
-          </div>
-
-          <div style="display: flex; justify-content: flex-end; align-items: center; margin-bottom: 8px;">
-            <div style="font-size: 16px; font-weight: bold; margin-right: 15px;">Grand Total</div>
-            <div style="font-size: 18px; font-weight: bold;">₹${(orderData.grandTotal || 0).toFixed(2)}</div>
-          </div>
-
-          <div style="border-top: 1.5px solid black; margin: 8px 0;"></div>
-
-          <div style="font-size: 14px; margin-top: 8px; font-style: italic;">${settings.billFooter || 'Sea you soon — under the moon'}</div>
-          `;
-
-    } else { // KOT
-      let groupsToPrint = [];
-
-      if (settings.printerStations && settings.printerStations.length > 0) {
-        // Station logic
-        const mainItems = [];
-        const stationsMap = {}; // stationName -> items
-
-        orderData.items.forEach(item => {
-          let assignedStation = null;
-          for (const st of settings.printerStations) {
-            if (st.categories.includes(item.cat)) {
-              assignedStation = st.name;
-              break;
-            }
-          }
-
-          if (assignedStation) {
-            if (!stationsMap[assignedStation]) stationsMap[assignedStation] = [];
-            stationsMap[assignedStation].push(item);
-          } else {
-            mainItems.push(item);
-          }
-        });
-
-        // Push separated groups
-        Object.entries(stationsMap).forEach(([stName, items]) => {
-          groupsToPrint.push({ title: `Station: ${stName}`, items });
-        });
-
-        if (mainItems.length > 0) {
-          groupsToPrint.push({ title: 'Main Kitchen', items: mainItems });
-        }
-      } else {
-        groupsToPrint = [{ title: 'All Items', items: orderData.items }];
-      }
-
-      for (let i = 0; i < groupsToPrint.length; i++) {
-        const group = groupsToPrint[i];
-        if (group.items.length === 0) continue;
-
-        printContent += `
-          <div style="${i < groupsToPrint.length - 1 ? 'page-break-after: always; margin-bottom: 20px;' : ''}">
-            <div style="font-size: 14px; font-weight: bold;">${dateStr} ${timeStr}</div>
-            <h2 style="margin: 5px 0; font-size: 22px; font-weight: 900;">KOT - ${formattedSeq}</h2>
-            <div style="font-size: 16px; font-weight: bold;">${orderData.orderType || 'Dine In'} ${orderData.isReprint ? '(REPRINT)' : ''}</div>
-            ${orderData.tableName ? `<div style="font-size: 16px; font-weight: bold;">Table: ${orderData.tableName}</div>` : ''}
-            ${orderData.orderId ? `<div style="font-size: 16px; font-weight: bold;">Order No: ${orderData.orderId}</div>` : ''}
-            ${orderData.customerName ? `<div style="font-size: 16px; font-weight: bold;">Customer: ${orderData.customerName}</div>` : ''}
-            <div>--------------------------------</div>
-            <table style="width: 100%; text-align: left; font-size: 16px; font-weight: bold;">
-              <tr>
-                <th style="width: 70%">Item</th>
-                <th style="text-align: right;">Qty</th>
-              </tr>
-              <tr><td colspan="2">--------------------------------</td></tr>
-              `;
-        for (let item of group.items) {
-          printContent += `<tr>
-               <td style="padding-top: 6px;">
-                <div>${item.name}</div>
-                ${item.note ? `<div style="font-size: 12px; font-style: italic; color: #333;">*${item.note}</div>` : ''}
-               </td>
-               <td style="text-align: right; padding-top: 6px;">${item.qty}</td>
-             </tr>`;
-        }
-        printContent += `
-            </table>
-            <div>--------------------------------</div>
-          </div>
-          `;
-      }
-    }
-
-    printContent += `</div></div>`;
-
-    // Create iframe to isolate print styles
-    const printFrame = document.createElement('iframe');
-    printFrame.style.position = 'fixed';
-    printFrame.style.right = '0';
-    printFrame.style.bottom = '0';
-    printFrame.style.width = '0';
-    printFrame.style.height = '0';
-    printFrame.style.border = '0';
-
-    document.body.appendChild(printFrame);
-
-    const frameDoc = printFrame.contentWindow.document;
-    frameDoc.open();
-    frameDoc.write(`
-      <html>
-        <head>
-          <style>
-            @page {margin: 0; }
-            body {margin: 0; padding: 4mm; }
-          </style>
-        </head>
-        <body>
-          ${printContent}
-        </body>
-      </html>
-      `);
-    frameDoc.close();
-
-    // Focus and print the iframe
-    printFrame.contentWindow.focus();
-    printFrame.contentWindow.print();
-
-    // Cleanup
-    setTimeout(() => {
-      document.body.removeChild(printFrame);
-    }, 1000);
+  } catch (e) {
+    console.error("Printing error:", e);
+    alert("Printing failed: " + e.message);
   }
 };
-
 
 const OrderingSystem = ({ table, tables, nonTableOrders, initialOrder, onBack, onSaveOrder, onSettleTable, onChangeTable, MENU_ITEMS, CATEGORIES, customers, settings }) => {
   const [cart, setCart] = useState(initialOrder || []);
@@ -3651,7 +3705,48 @@ export default function App() {
     fontBaseSize: '14',
     fontBaseWeight: 'normal',
     autoServiceCharge: true,
-    serviceChargeRate: 5
+    serviceChargeRate: 5,
+    // New Modular Printer Settings
+    selectedProfileId: 'default',
+    printerProfiles: [
+      { id: 'default', name: 'Main Billing Printer', paperWidth: '80mm', interface: 'USB' },
+      { id: 'bakery', name: 'Bakery KOT', paperWidth: '58mm', interface: 'USB' }
+    ],
+    header: {
+      showLogo: true,
+      logoAlign: 'center',
+      logoSize: 60,
+      topText: 'Tyde Cafe\nSeawood Estate, Nerul\nGST: 27AABCV1234F1Z1',
+      fontSize: 14,
+      fontWeight: 'bold',
+      lineSpacing: 1.2,
+      fontFamily: 'Outfit',
+      marginTop: 0,
+      marginBottom: 10
+    },
+    body: {
+      showQty: true,
+      showPrice: true,
+      showTotal: true,
+      itemNameSize: 12,
+      itemNameWeight: 'normal',
+      itemPriceSize: 12,
+      separator: 'dashed' // solid, dashed, none
+    },
+    footer: {
+      bottomText: 'This is a computer generated bill.\nThank you for visiting us!',
+      fontSize: 10,
+      fontWeight: 'normal',
+      align: 'center',
+      fontFamily: 'monospace',
+      marginTop: 10,
+      marginBottom: 0
+    },
+    advanced: {
+      showTaxBreakdown: true,
+      showQRCode: true,
+      margins: { top: 2, bottom: 5, left: 2, right: 2 }
+    }
   });
   const [menuItems, setMenuItems] = useState(INITIAL_MENU_ITEMS);
   const [products, setProducts] = useState([...INITIAL_PRODUCTS]);
@@ -3989,6 +4084,15 @@ export default function App() {
               onClearHistory={handleClearHistory}
               onFullReset={handleFullReset}
             />
+          )}
+          {view === 'profit-loss' && (
+            <ProfitLossView orderHistory={orderHistory} menuItems={[...menuItems, ...products]} />
+          )}
+          {view === 'crm' && (
+            <CRMView customers={customers} />
+          )}
+          {view === 'reports' && (
+            <ReportsView orderHistory={orderHistory} />
           )}
           {view === 'printersettings' && (
             <PrinterSettingsView settings={settings} onSaveSettings={setSettings} categories={categories} />
