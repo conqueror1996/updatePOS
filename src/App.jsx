@@ -305,6 +305,14 @@ const AppSidebar = ({ activeView, onViewChange }) => {
           </div>
         ))}
       </div>
+      
+      {/* Version Footer */}
+      <div style={{ padding: '20px', borderTop: '1px solid #f1f5f9' }}>
+         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8' }}>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1', boxShadow: '0 0 8px #6366f1' }}></div>
+            <span style={{ fontSize: '10px', fontWeight: '900', letterSpacing: '0.5px' }}>v1.0.1 (STABLE)</span>
+         </div>
+      </div>
     </div>
   );
 };
