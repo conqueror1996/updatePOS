@@ -2532,6 +2532,79 @@ const NonTableManagement = ({ orders, onSelectOrder, onCreateOrder, onViewChange
   );
 };
 
+/* --- BROWSER SYSTEM PRINT FALLBACK --- */
+const printViaBrowser = (orderData, type = 'BILL') => {
+  // Use a temporary iframe to print only the bill content without the entire UI
+  const printWindow = window.open('', '_blank', 'width=400,height=600');
+  if (!printWindow) return alert("Pop-up blocked! Please allow popups to print via system dialog.");
+
+  const isKOT = type === 'KOT';
+  const title = isKOT ? `KOT - ${orderData.tableName || 'Order'}` : `Bill - #${orderData.orderId || 'New'}`;
+
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>${title}</title>
+        <style>
+          @page { margin: 0; }
+          body { font-family: 'Courier New', Courier, monospace; width: 80mm; padding: 10mm; margin: 0; font-size: 13px; line-height: 1.4; color: black; }
+          .center { text-align: center; }
+          .bold { font-weight: bold; }
+          .line { border-top: 1px dashed #000; margin: 5px 0; }
+          .row { display: flex; justify-content: space-between; margin-bottom: 2px; }
+          .item-name { flex: 1; }
+          .qty { width: 40px; }
+          .total { width: 70px; text-align: right; }
+          table { width: 100%; border-collapse: collapse; }
+          th { text-align: left; border-bottom: 1px solid #000; }
+        </style>
+      </head>
+      <body>
+        <div class="center bold" style="font-size: 16px;">${isKOT ? 'KITCHEN ORDER' : (orderData.storeName || 'TYDE CAFE')}</div>
+        ${!isKOT ? `<div class="center">${orderData.storeAddress || ''}</div>` : ''}
+        <div class="line"></div>
+        <div class="row"><span class="bold">TABLE: ${orderData.tableName || 'N/A'}</span> <span>#${orderData.orderId || ''}</span></div>
+        <div class="row"><span>${new Date().toLocaleString()}</span></div>
+        <div class="line"></div>
+        
+        <table>
+          <thead>
+            <tr>
+              <th class="qty">QTY</th>
+              <th>ITEM</th>
+              ${!isKOT ? '<th class="total">TOTAL</th>' : ''}
+            </tr>
+          </thead>
+          <tbody>
+            ${(orderData.items || []).map(item => `
+              <tr>
+                <td class="qty">${item.qty}</td>
+                <td>${item.name}${item.note ? `<br/><small>* ${item.note}</small>` : ''}</td>
+                ${!isKOT ? `<td class="total">${(item.price * item.qty).toFixed(0)}</td>` : ''}
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        
+        <div class="line"></div>
+        ${!isKOT ? `
+          <div class="row bold"><span>GRAND TOTAL</span> <span>Rs. ${orderData.grandTotal || 0}</span></div>
+          <div class="line"></div>
+          <div class="center" style="font-size: 10px; margin-top: 10px;">Thank you for visiting us!</div>
+        ` : ''}
+        
+        <script>
+          window.onload = () => {
+            window.print();
+            window.close();
+          };
+        </script>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+};
+
 /* --- DIRECT ESC/POS PRINTING HARDWARE ENGINE --- */
 // Connects bypassing Browser Dialog directly to USB/Serial EPSON/STAR format POS Thermal hardware
 const printPosToSerial = async (orderData, type = 'BILL') => {
@@ -2546,28 +2619,45 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
   let writer;
   try {
     const printerConfig = await get('pos_printer_settings') || {};
+    const profiles = printerConfig.printerProfiles || [];
+    const selectedProfile = profiles.find(p => p.id === printerConfig.selectedProfileId) || profiles[0] || { interface: 'USB' };
+
+    console.log(`[PrinterEngine] Starting ${type} job via ${selectedProfile.interface} interface`);
+
+    if (selectedProfile.interface === 'SYSTEM') {
+      return printViaBrowser(orderData, type);
+    }
+
     const generator = new EscPosGenerator(printerConfig);
 
-    if (!('serial' in navigator)) throw new Error('Web Serial API not supported.');
+    if (!('serial' in navigator)) {
+      console.warn("[PrinterEngine] Web Serial API missing. Falling back to System Print.");
+      return printViaBrowser(orderData, type);
+    }
     
     // Step 1: Intelligent Port Selection with Persistence
     const existingPorts = await navigator.serial.getPorts();
     const savedPrinterInfo = await get('preferred_printer_info');
+    console.log(`[PrinterEngine] Found ${existingPorts.length} authorized ports`);
 
+    let targetPort = null;
     if (savedPrinterInfo && existingPorts.length > 0) {
-      // Find the port that matches our saved Vendor/Product IDs
-      port = existingPorts.find(p => {
+      targetPort = existingPorts.find(p => {
         const info = p.getInfo();
         return info.usbVendorId === savedPrinterInfo.usbVendorId && 
                info.usbProductId === savedPrinterInfo.usbProductId;
-      }) || existingPorts[0]; // fallback if not found
-    } else if (existingPorts.length > 0) {
+      });
+    }
+
+    if (targetPort) {
+      console.log("[PrinterEngine] Using pinned printer port");
+      port = targetPort;
+    } else if (existingPorts.length > 0 && savedPrinterInfo) {
+      console.log("[PrinterEngine] Pinned printer not found, using first available authorized port");
       port = existingPorts[0];
     } else {
-      // If no ports are authorized, we MUST trigger the user gesture picker
+      console.log("[PrinterEngine] Requesting new printer authorization...");
       port = await navigator.serial.requestPort();
-      
-      // Save the selection for next time
       const info = port.getInfo();
       if (info.usbVendorId) {
         await set('preferred_printer_info', {
@@ -4263,7 +4353,10 @@ export default function App() {
                   grandTotal,
                   orderId: quickPrintTable.id,
                   phone: quickPrintTable.phone,
-                  customerName: quickPrintTable.customerName
+                  customerName: quickPrintTable.customerName,
+                  storeName: settings.header.storeName,
+                  storeAddress: settings.header.storeAddress,
+                  storePhone: settings.header.storePhone
                 });
                 setTables(prev => prev.map(t => t.id === quickPrintTable.id ? { ...t, status: 'printed' } : t));
                 setQuickPrintTable(null);
