@@ -2542,6 +2542,8 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
     await set(key, seqNumber + 1);
   } catch (e) { }
 
+  let port;
+  let writer;
   try {
     const printerConfig = await get('pos_printer_settings') || {};
     const generator = new EscPosGenerator(printerConfig);
@@ -2549,7 +2551,6 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
     if (!('serial' in navigator)) throw new Error('Web Serial API not supported.');
     
     // Step 1: Intelligent Port Selection with Persistence
-    let port;
     const existingPorts = await navigator.serial.getPorts();
     const savedPrinterInfo = await get('preferred_printer_info');
 
@@ -2578,7 +2579,7 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
 
     // Step 2: Open and Write
     await port.open({ baudRate: 9600 });
-    const writer = port.writable.getWriter();
+    writer = port.writable.getWriter();
 
     try {
       if (type === 'KOT') {
@@ -2619,7 +2620,7 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
         await writer.write(bytes);
       }
     } finally {
-      writer.releaseLock();
+      if (writer) writer.releaseLock();
     }
   } catch (e) {
     if (e.name === 'NotFoundError' || e.message.includes('No port selected')) {
