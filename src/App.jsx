@@ -1661,6 +1661,24 @@ const GlobalSettingsView = ({ settings, onSaveSettings, onClearHistory, onFullRe
             Save Comprehensive Interface Settings
           </button>
 
+          <div style={{ borderTop: '1px solid #f3f4f6', marginTop: '40px', paddingTop: '24px' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 'bold', color: '#1f2937', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Printer size={20} color="var(--primary)" /> Billing & Receipt Design
+            </h3>
+            <div style={{ padding: '24px', background: 'linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%)', borderRadius: '16px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: '900', fontSize: '15px', color: '#0f172a', marginBottom: '4px' }}>Thermal Receipt Architecture</div>
+                <div style={{ fontSize: '12px', color: '#64748b', fontWeight: '600' }}>Modify headers, footers, tax details, and layout scaling.</div>
+              </div>
+              <button 
+                onClick={() => window.dispatchEvent(new CustomEvent('changeView', { detail: 'printersettings' }))}
+                style={{ padding: '10px 20px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '10px', fontWeight: 'bold', fontSize: '12px', color: 'var(--primary)', cursor: 'pointer', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}
+              >
+                Open Designer
+              </button>
+            </div>
+          </div>
+
           <div style={{ borderTop: '2px solid #fee2e2', marginTop: '40px', paddingTop: '24px' }}>
             <h3 style={{ fontSize: '16px', fontWeight: 'bold', color: '#dc2626', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <AlertTriangle size={20} color="#dc2626" /> Danger Zone: Data Management
@@ -1686,7 +1704,7 @@ const GlobalSettingsView = ({ settings, onSaveSettings, onClearHistory, onFullRe
 
 /* --- SYSTEM SETTINGS VIEW --- */
 const BillPreview = ({ settings }) => {
-  const { header, body, footer, advanced, printerProfiles, selectedProfileId } = settings;
+  const { header, meta, body, footer, advanced, printerProfiles, selectedProfileId } = settings;
   const profile = printerProfiles.find(p => p.id === selectedProfileId) || printerProfiles[0];
   const paperWidth = profile?.paperWidth === '58mm' ? '240px' : profile?.paperWidth === 'A4' ? '100%' : '300px';
 
@@ -1729,15 +1747,41 @@ const BillPreview = ({ settings }) => {
             <ImageIcon size={24} color="#94a3b8" />
           </div>
         )}
-        <div style={{ 
-          whiteSpace: 'pre-line', 
-          fontSize: `${header.fontSize}px`, 
-          fontWeight: header.fontWeight,
-          lineHeight: header.lineSpacing,
-          fontFamily: header.fontFamily === 'monospace' ? 'monospace' : 'inherit'
-        }}>
-          {header.topText}
+        
+        <div style={{ fontFamily: header.fontFamily === 'monospace' ? 'monospace' : 'inherit' }}>
+          {header.showStoreName && (
+            <div style={{ fontSize: `${header.fontSize}px`, fontWeight: header.fontWeight, marginBottom: '2px' }}>
+              {header.storeName}
+            </div>
+          )}
+          {header.showAddress && (
+            <div style={{ fontSize: '10px', whiteSpace: 'pre-line', opacity: 0.8, marginBottom: '4px' }}>
+              {header.storeAddress}
+            </div>
+          )}
+          <div style={{ fontSize: '10px', opacity: 0.8 }}>
+            {header.showPhone && <span>Ph: {header.storePhone}</span>}
+            {header.showPhone && header.showTaxId && <span> | </span>}
+            {header.showTaxId && <span>{header.taxId}</span>}
+          </div>
+          {header.headerNote && (
+            <div style={{ fontSize: '10px', marginTop: '4px', fontStyle: 'italic', opacity: 0.7 }}>
+              {header.headerNote}
+            </div>
+          )}
         </div>
+      </div>
+
+      <div style={{ borderBottom: body.separator === 'solid' ? '1px solid #000' : body.separator === 'dashed' ? '1px dashed #000' : 'none', margin: '10px 0' }}></div>
+
+      {/* Meta Info */}
+      <div style={{ fontSize: '10px', margin: '10px 0', display: 'flex', flexWrap: 'wrap', gap: 'x: 8px, y: 4px' }}>
+        {meta.showDateTime && <div style={{ width: '100%' }}>Date: 28/03/2026   Time: 18:45</div>}
+        {meta.showOrderId && <div style={{ marginRight: '12px' }}>ID: #4592</div>}
+        {meta.showTableNo && <div style={{ marginRight: '12px' }}>Table: 12</div>}
+        {meta.showOrderType && <div style={{ marginRight: '12px' }}>Type: Dine-In</div>}
+        {meta.showCustomerName && <div style={{ width: '100%' }}>Cust: Arjun Mehta</div>}
+        {meta.showCashierName && <div style={{ width: '100%' }}>Staff: Rahul (Cashier)</div>}
       </div>
 
       <div style={{ borderBottom: body.separator === 'solid' ? '1px solid #000' : body.separator === 'dashed' ? '1px dashed #000' : 'none', margin: '10px 0' }}></div>
@@ -1779,6 +1823,14 @@ const BillPreview = ({ settings }) => {
         </div>
       )}
 
+      {/* WiFi */}
+      {footer.showWiFi && (
+        <div style={{ padding: '8px', border: '1px solid #eee', borderRadius: '4px', margin: '10px 0', fontSize: '9px', textAlign: 'center', background: '#fcfcfd' }}>
+          <strong>Guest WiFi</strong><br />
+          Network: {footer.wifiName} | Pass: {footer.wifiPass}
+        </div>
+      )}
+
       {/* Footer */}
       <div style={{ 
         textAlign: footer.align, 
@@ -1792,9 +1844,14 @@ const BillPreview = ({ settings }) => {
         {footer.bottomText}
       </div>
 
-      {/* Order Info */}
-      <div style={{ fontSize: '9px', textAlign: 'center', color: '#64748b', marginTop: '20px', borderTop: '1px solid #eee', paddingTop: '10px' }}>
-        Order #4592 • Table 12 • 28/03/2026 18:45
+      {footer.footerNote && (
+        <div style={{ fontSize: '9px', textAlign: footer.align, marginTop: '4px', opacity: 0.8 }}>
+          {footer.footerNote}
+        </div>
+      )}
+
+      <div style={{ fontSize: '8px', textAlign: 'center', color: '#94a3b8', marginTop: '10px' }}>
+        --- End of Bill ---
       </div>
     </div>
   );
@@ -1818,11 +1875,12 @@ const PrinterSettingsView = ({ settings, onSaveSettings, categories }) => {
   };
 
   const tabs = [
-    { id: 'general', label: 'Printer', icon: HardDrive },
-    { id: 'header', label: 'Header', icon: Type },
-    { id: 'body', label: 'Bill Body', icon: Layers },
-    { id: 'footer', label: 'Footer', icon: FileText },
-    { id: 'advanced', label: 'Advanced', icon: Settings2 }
+    { id: 'general', label: 'Connection', icon: HardDrive },
+    { id: 'header', label: 'Store Info', icon: Store },
+    { id: 'meta', label: 'Order Meta', icon: Clock },
+    { id: 'body', label: 'Bill Items', icon: Layers },
+    { id: 'footer', label: 'Branding', icon: FileText },
+    { id: 'advanced', label: 'Engine', icon: Settings2 }
   ];
 
   const handleSave = () => {
@@ -1905,7 +1963,7 @@ const PrinterSettingsView = ({ settings, onSaveSettings, categories }) => {
 
           {activeTab === 'header' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '14px', fontWeight: 'bold' }}>Logo Integration</span>
                 <input type="checkbox" checked={localSettings.header.showLogo} onChange={e => updateNested('header.showLogo', e.target.checked)} />
               </div>
@@ -1924,28 +1982,81 @@ const PrinterSettingsView = ({ settings, onSaveSettings, categories }) => {
                 </div>
               )}
 
-              <div>
-                <label style={{ fontSize: '13px', fontWeight: 'bold', display: 'block', marginBottom: '8px' }}>Top Header Text (Multi-line)</label>
-                <textarea 
-                  rows="4" 
-                  value={localSettings.header.topText} 
-                  onChange={e => updateNested('header.topText', e.target.value)}
-                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px', outline: 'none' }}
-                />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <input type="checkbox" checked={localSettings.header.showStoreName} onChange={e => updateNested('header.showStoreName', e.target.checked)} />
+                  <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Store Name</label>
+                </div>
+                <input type="text" value={localSettings.header.storeName} onChange={e => updateNested('header.storeName', e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }} disabled={!localSettings.header.showStoreName} />
+
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginTop: '8px' }}>
+                  <input type="checkbox" checked={localSettings.header.showAddress} onChange={e => updateNested('header.showAddress', e.target.checked)} />
+                  <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Store Address (Multi-line)</label>
+                </div>
+                <textarea rows="3" value={localSettings.header.storeAddress} onChange={e => updateNested('header.storeAddress', e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px' }} disabled={!localSettings.header.showAddress} />
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '8px' }}>
+                  <div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '4px' }}>
+                      <input type="checkbox" checked={localSettings.header.showPhone} onChange={e => updateNested('header.showPhone', e.target.checked)} />
+                      <label style={{ fontSize: '11px', fontWeight: 'bold' }}>Phone</label>
+                    </div>
+                    <input type="text" value={localSettings.header.storePhone} onChange={e => updateNested('header.storePhone', e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }} />
+                  </div>
+                  <div>
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '4px' }}>
+                      <input type="checkbox" checked={localSettings.header.showTaxId} onChange={e => updateNested('header.showTaxId', e.target.checked)} />
+                      <label style={{ fontSize: '11px', fontWeight: 'bold' }}>GST/Tax ID</label>
+                    </div>
+                    <input type="text" value={localSettings.header.taxId} onChange={e => updateNested('header.taxId', e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }} />
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '8px' }}>
+                  <label style={{ fontSize: '11px', fontWeight: 'bold' }}>Custom Header Note (Optional)</label>
+                  <input type="text" placeholder="e.g. WiFi Password or Welcome Message" value={localSettings.header.headerNote} onChange={e => updateNested('header.headerNote', e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '11px' }} />
+                </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                <div>
-                   <label style={{ fontSize: '11px', fontWeight: 'bold' }}>Font Size</label>
-                   <input type="number" value={localSettings.header.fontSize} onChange={e => updateNested('header.fontSize', parseInt(e.target.value))} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }} />
+              <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '16px' }}>
+                <label style={{ fontSize: '11px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '12px', display: 'block' }}>Typography</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 'bold' }}>Font Size</label>
+                    <input type="number" value={localSettings.header.fontSize} onChange={e => updateNested('header.fontSize', parseInt(e.target.value))} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }} />
+                  </div>
+                  <div>
+                    <label style={{ fontSize: '11px', fontWeight: 'bold' }}>Font Weight</label>
+                    <select value={localSettings.header.fontWeight} onChange={e => updateNested('header.fontWeight', e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                      <option value="normal">Normal</option>
+                      <option value="bold">Bold</option>
+                      <option value="900">Black</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label style={{ fontSize: '11px', fontWeight: 'bold' }}>Font Weight</label>
-                  <select value={localSettings.header.fontWeight} onChange={e => updateNested('header.fontWeight', e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
-                    <option value="normal">Normal</option>
-                    <option value="bold">Bold</option>
-                    <option value="900">Black</option>
-                  </select>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'meta' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
+                <h4 style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '16px', color: '#111827' }}>What to show on receipt?</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {[
+                    { id: 'showTableNo', label: 'Table Number' },
+                    { id: 'showOrderId', label: 'Order Identification (ID)' },
+                    { id: 'showDateTime', label: 'Print Date & Time' },
+                    { id: 'showCustomerName', label: 'Customer Name' },
+                    { id: 'showCustomerPhone', label: 'Customer Mobile' },
+                    { id: 'showCashierName', label: 'Cashier / Staff Name' },
+                    { id: 'showOrderType', label: 'Order Mode (Dine-In/Pick Up)' },
+                  ].map(opt => (
+                    <label key={opt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '10px', background: 'white', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                       <span style={{ fontSize: '12px', fontWeight: '600' }}>{opt.label}</span>
+                       <input type="checkbox" checked={localSettings.meta[opt.id]} onChange={e => updateNested(`meta.${opt.id}`, e.target.checked)} />
+                    </label>
+                  ))}
                 </div>
               </div>
             </div>
@@ -2000,9 +2111,28 @@ const PrinterSettingsView = ({ settings, onSaveSettings, categories }) => {
                   style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '12px', outline: 'none' }}
                 />
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+
+               <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 'bold' }}>WiFi Details</span>
+                  <input type="checkbox" checked={localSettings.footer.showWiFi} onChange={e => updateNested('footer.showWiFi', e.target.checked)} />
+                </div>
+                {localSettings.footer.showWiFi && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                    <input type="text" placeholder="WiFi SSID" value={localSettings.footer.wifiName} onChange={e => updateNested('footer.wifiName', e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '11px' }} />
+                    <input type="text" placeholder="WiFi Pass" value={localSettings.footer.wifiPass} onChange={e => updateNested('footer.wifiPass', e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '11px' }} />
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label style={{ fontSize: '11px', fontWeight: 'bold' }}>Closing Note (Single Line)</label>
+                <input type="text" placeholder="e.g. Follow us @tydecafe" value={localSettings.footer.footerNote} onChange={e => updateNested('footer.footerNote', e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '11px' }} />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
                 {['left', 'center', 'right'].map(align => (
-                    <button key={align} onClick={() => updateNested('footer.align', align)} style={{ padding: '8px', borderRadius: '8px', border: '1px solid #e2e8f0', background: localSettings.footer.align === align ? 'var(--primary)' : 'white', color: localSettings.footer.align === align ? 'white' : '#64748b' }}>
+                    <button key={align} onClick={() => updateNested('footer.align', align)} style={{ padding: '8px', borderRadius: '8px', border: '1px solid #e2e8f0', background: localSettings.footer.align === align ? 'var(--primary)' : 'white', color: localSettings.footer.align === align ? 'white' : '#64748b', fontSize: '11px', fontWeight: '700' }}>
                       {align.toUpperCase()}
                     </button>
                 ))}
@@ -2400,54 +2530,96 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
     const generator = new EscPosGenerator(printerConfig);
 
     if (!('serial' in navigator)) throw new Error('Web Serial API not supported.');
-    const port = await navigator.serial.requestPort();
+    
+    // Step 1: Intelligent Port Selection with Persistence
+    let port;
+    const existingPorts = await navigator.serial.getPorts();
+    const savedPrinterInfo = await get('preferred_printer_info');
+
+    if (savedPrinterInfo && existingPorts.length > 0) {
+      // Find the port that matches our saved Vendor/Product IDs
+      port = existingPorts.find(p => {
+        const info = p.getInfo();
+        return info.usbVendorId === savedPrinterInfo.usbVendorId && 
+               info.usbProductId === savedPrinterInfo.usbProductId;
+      }) || existingPorts[0]; // fallback if not found
+    } else if (existingPorts.length > 0) {
+      port = existingPorts[0];
+    } else {
+      // If no ports are authorized, we MUST trigger the user gesture picker
+      port = await navigator.serial.requestPort();
+      
+      // Save the selection for next time
+      const info = port.getInfo();
+      if (info.usbVendorId) {
+        await set('preferred_printer_info', {
+          usbVendorId: info.usbVendorId,
+          usbProductId: info.usbProductId
+        });
+      }
+    }
+
+    // Step 2: Open and Write
     await port.open({ baudRate: 9600 });
     const writer = port.writable.getWriter();
 
-
-    if (type === 'KOT') {
-      let groupsToPrint = [];
-      if (printerConfig.printerStations && printerConfig.printerStations.length > 0) {
-        const mainItems = [];
-        const stationsMap = {};
-        orderData.items.forEach(item => {
-          let assignedStation = null;
-          for (const st of printerConfig.printerStations) {
-            if (st.categories.includes(item.cat)) {
-              assignedStation = st.name;
-              break;
+    try {
+      if (type === 'KOT') {
+        let groupsToPrint = [];
+        if (printerConfig.printerStations && printerConfig.printerStations.length > 0) {
+          const mainItems = [];
+          const stationsMap = {};
+          orderData.items.forEach(item => {
+            let assignedStation = null;
+            for (const st of printerConfig.printerStations) {
+              if (st.categories.includes(item.cat)) {
+                assignedStation = st.name;
+                break;
+              }
             }
-          }
-          if (assignedStation) {
-            if (!stationsMap[assignedStation]) stationsMap[assignedStation] = [];
-            stationsMap[assignedStation].push(item);
-          } else {
-            mainItems.push(item);
-          }
-        });
-        Object.entries(stationsMap).forEach(([stName, items]) => {
-          groupsToPrint.push({ title: stName, items });
-        });
-        if (mainItems.length > 0) groupsToPrint.push({ title: 'Main Kitchen', items: mainItems });
-      } else {
-        groupsToPrint = [{ title: 'KOT', items: orderData.items }];
-      }
+            if (assignedStation) {
+              if (!stationsMap[assignedStation]) stationsMap[assignedStation] = [];
+              stationsMap[assignedStation].push(item);
+            } else {
+              mainItems.push(item);
+            }
+          });
+          Object.entries(stationsMap).forEach(([stName, items]) => {
+            groupsToPrint.push({ title: stName, items });
+          });
+          if (mainItems.length > 0) groupsToPrint.push({ title: 'Main Kitchen', items: mainItems });
+        } else {
+          groupsToPrint = [{ title: 'KOT', items: orderData.items }];
+        }
 
-      for (const group of groupsToPrint) {
-        const bytes = generator.generateKOT(group, group.title);
+        for (const group of groupsToPrint) {
+          const bytes = generator.generateKOT(group, group.title);
+          await writer.write(bytes);
+        }
+      } else {
+        // BILL
+        const bytes = generator.generateBill(orderData);
         await writer.write(bytes);
       }
-    } else {
-      // BILL
-      const bytes = generator.generateBill(orderData);
-      await writer.write(bytes);
+    } finally {
+      writer.releaseLock();
     }
-
-    writer.releaseLock();
-    await port.close();
   } catch (e) {
+    if (e.name === 'NotFoundError' || e.message.includes('No port selected')) {
+      console.log("Printing cancelled: No port selected.");
+      return;
+    }
     console.error("Printing error:", e);
     alert("Printing failed: " + e.message);
+  } finally {
+    // Release port even if printing or opening failed
+    if (port && port.writable) {
+      try {
+        await port.close();
+      } catch (closeErr) {
+        console.warn("Failed to close serial port:", closeErr);
+      }
+    }
   }
 };
 
@@ -3716,13 +3888,32 @@ export default function App() {
       showLogo: true,
       logoAlign: 'center',
       logoSize: 60,
-      topText: 'Tyde Cafe\nSeawood Estate, Nerul\nGST: 27AABCV1234F1Z1',
+      storeName: 'Tyde Cafe',
+      storeAddress: 'Seawood Estate, Nerul',
+      storePhone: '+91 8652475772',
+      storeEmail: 'hello@tydecafe.com',
+      taxId: 'GST: 27AABCV1234F1Z1',
+      showStoreName: true,
+      showAddress: true,
+      showPhone: true,
+      showEmail: false,
+      showTaxId: true,
+      headerNote: '', // Custom line below store info
       fontSize: 14,
       fontWeight: 'bold',
       lineSpacing: 1.2,
       fontFamily: 'Outfit',
       marginTop: 0,
       marginBottom: 10
+    },
+    meta: {
+      showTableNo: true,
+      showOrderId: true,
+      showDateTime: true,
+      showCustomerName: true,
+      showCustomerPhone: true,
+      showCashierName: true,
+      showOrderType: true,
     },
     body: {
       showQty: true,
@@ -3740,7 +3931,11 @@ export default function App() {
       align: 'center',
       fontFamily: 'monospace',
       marginTop: 10,
-      marginBottom: 0
+      marginBottom: 0,
+      footerNote: 'Visit again!', // Custom line at very bottom
+      showWiFi: false,
+      wifiName: 'TydeCafe_Guest',
+      wifiPass: 'welcome123'
     },
     advanced: {
       showTaxBreakdown: true,
@@ -3754,6 +3949,14 @@ export default function App() {
   const [categories, setCategories] = useState(INITIAL_CATEGORIES);
   const [floorPlanSections, setFloorPlanSections] = useState(INITIAL_FLOOR_SECTIONS);
   const [customers, setCustomers] = useState({});
+
+  useEffect(() => {
+    const handleViewChange = (e) => {
+      if (e.detail) setView(e.detail);
+    };
+    window.addEventListener('changeView', handleViewChange);
+    return () => window.removeEventListener('changeView', handleViewChange);
+  }, []);
 
   useEffect(() => {
     const loadFromIDB = async () => {

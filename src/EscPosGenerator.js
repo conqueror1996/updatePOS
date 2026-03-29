@@ -49,32 +49,70 @@ export class EscPosGenerator {
   }
 
   generateBill(orderData) {
-    const { header, body, footer, advanced } = this.settings;
+    const { header, meta, body, footer, advanced } = this.settings;
     let cmds = [this.CMD.INIT];
 
     // --- Header ---
     cmds.push(header.logoAlign === 'center' ? this.CMD.ALIGN_CENTER : header.logoAlign === 'right' ? this.CMD.ALIGN_RIGHT : this.CMD.ALIGN_LEFT);
-    if (header.fontWeight === 'bold' || header.fontWeight === '900') cmds.push(this.CMD.BOLD_ON);
     
-    // Top Text
-    if (header.topText) {
-      cmds.push(this.t(header.topText + '\n'));
+    if (header.showStoreName && header.storeName) {
+      if (header.fontWeight === 'bold' || header.fontWeight === '900') cmds.push(this.CMD.BOLD_ON);
+      cmds.push(this.t(header.storeName + '\n'));
+      cmds.push(this.CMD.BOLD_OFF);
     }
-    cmds.push(this.CMD.BOLD_OFF);
+    
+    if (header.showAddress && header.storeAddress) {
+      cmds.push(this.t(header.storeAddress + '\n'));
+    }
+    
+    let contactInfo = "";
+    if (header.showPhone && header.storePhone) contactInfo += `Ph: ${header.storePhone}`;
+    if (header.showPhone && header.showTaxId) contactInfo += " | ";
+    if (header.showTaxId && header.taxId) contactInfo += header.taxId;
+    
+    if (contactInfo) {
+      cmds.push(this.t(contactInfo + '\n'));
+    }
+
+    if (header.headerNote) {
+      cmds.push(this.t(header.headerNote + '\n'));
+    }
+
     cmds.push(this.line(body.separator === 'dashed' ? '-' : body.separator === 'solid' ? '_' : ' '));
 
     // --- Meta Info ---
     cmds.push(this.CMD.ALIGN_LEFT);
-    const dateStr = new Date().toLocaleDateString('en-GB');
-    const timeStr = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-    cmds.push(this.t(`Date: ${dateStr}   Time: ${timeStr}\n`));
-    cmds.push(this.t(`Table: ${orderData.tableName || 'N/A'}\n`));
-    if (orderData.customerName) cmds.push(this.t(`Customer: ${orderData.customerName}\n`));
+    
+    if (meta.showDateTime) {
+      const dateStr = new Date().toLocaleDateString('en-GB');
+      const timeStr = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      cmds.push(this.t(`Date: ${dateStr}  Time: ${timeStr}\n`));
+    }
+    
+    if (meta.showOrderId && orderData.orderId) {
+      cmds.push(this.t(`Order ID: #${orderData.orderId}\n`));
+    }
+    
+    if (meta.showTableNo && orderData.tableName) {
+      cmds.push(this.t(`Table: ${orderData.tableName}\n`));
+    }
+    
+    if (meta.showOrderType && orderData.orderType) {
+      cmds.push(this.t(`Type: ${orderData.orderType}\n`));
+    }
+    
+    if (meta.showCustomerName && orderData.customerName) {
+      cmds.push(this.t(`Customer: ${orderData.customerName}\n`));
+    }
+    
+    if (meta.showCustomerPhone && (orderData.phone || orderData.customerPhone)) {
+      cmds.push(this.t(`Phone: ${orderData.phone || orderData.customerPhone}\n`));
+    }
+
     cmds.push(this.line(body.separator === 'dashed' ? '-' : body.separator === 'solid' ? '_' : ' '));
 
     // --- Body (Items) ---
     // Column calculations (simplified for 80mm/48chars or 58mm/32chars)
-    // QTY(4) ITEM(REST) PRICE(8) TOTAL(8)
     const qtyW = body.showQty ? 4 : 0;
     const priceW = body.showPrice ? 8 : 0;
     const totalW = body.showTotal ? 9 : 0;
@@ -120,11 +158,23 @@ export class EscPosGenerator {
     cmds.push(this.t(`GRAND TOTAL: Rs. ${orderData.grandTotal?.toFixed(2)}\n`));
     cmds.push(this.CMD.BOLD_OFF);
 
-    // --- Footer ---
+    // --- Footer & WiFi ---
     cmds.push(this.CMD.ALIGN_CENTER);
     cmds.push(this.t('\n'));
+    
+    if (footer.showWiFi && footer.wifiName) {
+      cmds.push(this.CMD.BOLD_ON);
+      cmds.push(this.t("GUEST WiFi\n"));
+      cmds.push(this.CMD.BOLD_OFF);
+      cmds.push(this.t(`SSID: ${footer.wifiName}  Pass: ${footer.wifiPass}\n\n`));
+    }
+
     if (footer.bottomText) {
       cmds.push(this.t(footer.bottomText + '\n'));
+    }
+    
+    if (footer.footerNote) {
+      cmds.push(this.t(footer.footerNote + '\n'));
     }
 
     // --- Cut ---
