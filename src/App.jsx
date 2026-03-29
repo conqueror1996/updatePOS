@@ -265,7 +265,8 @@ const AppSidebar = ({ activeView, onViewChange }) => {
         { id: 'productsetup', label: 'Inventory', icon: Package },
         { id: 'reports', label: 'Reports', icon: BarChart3 },
         { id: 'crm', label: 'CRM', icon: User },
-        { id: 'globalsettings', label: 'Settings', icon: LayoutGrid },
+        { id: 'globalsettings', label: 'App Settings', icon: LayoutGrid },
+        { id: 'printersettings', label: 'Printer Designer', icon: Printer },
       ]
     }
   ];
@@ -1693,8 +1694,8 @@ const GlobalSettingsView = ({ settings, onSaveSettings, onClearHistory, onFullRe
 };
 
 /* --- SYSTEM SETTINGS VIEW --- */
-const BillPreview = ({ settings }) => {
-  const { header, meta, body, footer, advanced, printerProfiles, selectedProfileId } = settings;
+const BillPreview = ({ settings, mode = 'bill' }) => {
+  const { header, meta, body, footer, advanced, printerProfiles, selectedProfileId, kot = {} } = settings;
   const profile = printerProfiles.find(p => p.id === selectedProfileId) || printerProfiles[0];
   const paperWidth = profile?.paperWidth === '58mm' ? '240px' : profile?.paperWidth === 'A4' ? '100%' : '300px';
 
@@ -1707,6 +1708,46 @@ const BillPreview = ({ settings }) => {
   const subtotal = previewItems.reduce((acc, i) => acc + (i.price * i.qty), 0);
   const tax = subtotal * 0.05;
   const total = subtotal + tax;
+
+  if (mode === 'kot') {
+    return (
+      <div style={{
+        background: '#fff',
+        width: paperWidth,
+        margin: '0 auto',
+        padding: '10mm',
+        boxShadow: '0 0 40px rgba(0,0,0,0.1)',
+        color: '#000',
+        minHeight: '400px',
+        transition: 'all 0.3s ease'
+      }}>
+        <div style={{ textAlign: 'center', marginBottom: '10px' }}>
+          <div style={{ fontSize: '20px', fontWeight: 'bold' }}>{kot.title || 'KOT'}</div>
+        </div>
+        <div style={{ borderBottom: '2px solid #000', margin: '10px 0' }}></div>
+        <div style={{ fontSize: '12px', margin: '10px 0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Table: 12</span>
+                <span>Date: 28/03/2026</span>
+            </div>
+            <div>Time: 18:45</div>
+            {kot.showOrderType && <div>Type: Dine-In</div>}
+        </div>
+        <div style={{ borderBottom: '1px solid #000', margin: '10px 0' }}></div>
+        <div style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '8px' }}>QTY ITEM</div>
+        {previewItems.map((item, i) => (
+            <div key={i} style={{ display: 'flex', marginBottom: '6px', fontSize: `${kot.fontSize || 12}px`, fontWeight: kot.fontWeight || 'bold' }}>
+                <div style={{ width: '40px' }}>{item.qty}</div>
+                <div>{item.name}</div>
+            </div>
+        ))}
+        <div style={{ borderBottom: '2px solid #000', margin: '10px 0' }}></div>
+        <div style={{ fontSize: '8px', textAlign: 'center', color: '#94a3b8', marginTop: '10px' }}>
+          --- End of KOT ---
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{
@@ -1783,8 +1824,8 @@ const BillPreview = ({ settings }) => {
           <div key={i} style={{ display: 'flex', marginBottom: '6px', alignItems: 'flex-start' }}>
             {body.showQty && <div style={{ flex: 1, fontSize: '11px' }}>{item.qty}</div>}
             <div style={{ flex: 3, fontSize: `${body.itemNameSize}px`, fontWeight: body.itemNameWeight }}>{item.name}</div>
-            {body.showPrice && <div style={{ flex: 1, textAlign: 'right', fontSize: `${body.itemPriceSize}px` }}>{item.price}</div>}
-            {body.showTotal && <div style={{ flex: 1, textAlign: 'right', fontSize: `${body.itemPriceSize}px`, fontWeight: 'bold' }}>{item.price * item.qty}</div>}
+            {body.showPrice && <div style={{ flex: 1, textAlign: 'right', fontSize: '11px' }}>{item.price}</div>}
+            {body.showTotal && <div style={{ flex: 1, textAlign: 'right', fontSize: '11px', fontWeight: 'bold' }}>{item.price * item.qty}</div>}
           </div>
         ))}
       </div>
@@ -1859,6 +1900,7 @@ const PrinterSettingsView = ({ settings, onSaveSettings, categories }) => {
     { id: 'meta', label: 'Order Meta', icon: Clock },
     { id: 'body', label: 'Bill Items', icon: Layers },
     { id: 'footer', label: 'Branding', icon: FileText },
+    { id: 'kot', label: 'Kitchen (KOT)', icon: Utensils },
     { id: 'advanced', label: 'Engine', icon: Settings2 }
   ];
 
@@ -2129,6 +2171,46 @@ const PrinterSettingsView = ({ settings, onSaveSettings, categories }) => {
             </div>
           )}
 
+          {activeTab === 'kot' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px', border: '1px solid #f1f5f9' }}>
+                <h4 style={{ fontSize: '13px', fontWeight: 'bold', marginBottom: '16px', color: '#111827' }}>KOT Design Rules</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                   <div>
+                     <label style={{ fontSize: '11px', fontWeight: 'bold', marginBottom: '4px', display: 'block' }}>KOT Header Title</label>
+                     <input type="text" value={localSettings.kot?.title} onChange={e => updateNested('kot.title', e.target.value)} style={{ width: '100%', padding: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px' }} />
+                   </div>
+                   
+                   {[
+                     { id: 'showOrderType', label: 'Show Order Type (Mode)' },
+                     { id: 'showTableNo', label: 'Show Table Number' },
+                     { id: 'showDateTime', label: 'Show Date & Time' }
+                   ].map(opt => (
+                     <label key={opt.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '10px', background: 'white', borderRadius: '8px', border: '1px solid #f1f5f9' }}>
+                        <span style={{ fontSize: '12px', fontWeight: '600' }}>{opt.label}</span>
+                        <input type="checkbox" checked={localSettings.kot?.[opt.id]} onChange={e => updateNested(`kot.${opt.id}`, e.target.checked)} />
+                     </label>
+                   ))}
+
+                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 'bold' }}>Item Font Size</label>
+                        <input type="number" value={localSettings.kot?.fontSize} onChange={e => updateNested('kot.fontSize', parseInt(e.target.value))} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }} />
+                      </div>
+                      <div>
+                        <label style={{ fontSize: '11px', fontWeight: 'bold' }}>Font Weight</label>
+                        <select value={localSettings.kot?.fontWeight} onChange={e => updateNested('kot.fontWeight', e.target.value)} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #e2e8f0' }}>
+                          <option value="normal">Normal</option>
+                          <option value="bold">Bold Header</option>
+                          <option value="900">Black/Heavy</option>
+                        </select>
+                      </div>
+                   </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {activeTab === 'advanced' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
               <div style={{ padding: '16px', borderRadius: '12px', background: '#fffbeb', border: '1px solid #fef3c7' }}>
@@ -2164,10 +2246,10 @@ const PrinterSettingsView = ({ settings, onSaveSettings, categories }) => {
       {/* Real-time Preview */}
       <div style={{ flex: 1, padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f1f5f9', position: 'relative' }}>
           <div style={{ position: 'absolute', top: '24px', left: '24px', display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b' }}>
-             <Eye size={16} /> <span style={{ fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase' }}>Live WYSIWYG Rendering</span>
+             <Eye size={16} /> <span style={{ fontSize: '12px', fontWeight: 'bold', letterSpacing: '1px', textTransform: 'uppercase' }}>Live WYSIWYG Rendering ({activeTab === 'kot' ? 'KOT' : 'BILL'})</span>
           </div>
 
-          <BillPreview settings={localSettings} />
+          <BillPreview settings={localSettings} mode={activeTab === 'kot' ? 'kot' : 'bill'} />
 
           <div style={{ marginTop: '32px', textAlign: 'center' }}>
              <p style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 'bold' }}>Simulation matches the physical output of a {localSettings.printerProfiles.find(p => p.id === localSettings.selectedProfileId)?.paperWidth} printer</p>
@@ -3914,6 +3996,16 @@ export default function App() {
       showTaxBreakdown: true,
       showQRCode: true,
       margins: { top: 2, bottom: 5, left: 2, right: 2 }
+    },
+    kot: {
+      title: 'KOT',
+      showOrderType: true,
+      showTableNo: true,
+      showDateTime: true,
+      showTime: true,
+      fontSize: 14,
+      fontWeight: 'bold',
+      separator: 'solid'
     }
   });
   const [menuItems, setMenuItems] = useState(INITIAL_MENU_ITEMS);

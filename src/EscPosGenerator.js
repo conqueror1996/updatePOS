@@ -49,79 +49,104 @@ export class EscPosGenerator {
   }
 
   generateBill(orderData) {
-    const { header, body, footer, advanced } = this.settings;
+    const { header, meta, body, footer, advanced } = this.settings;
     let cmds = [this.CMD.INIT];
-
-    const paperWidth = this.profile.paperWidth || '80mm';
     const charLimit = this.charLimit;
 
-    // --- Header ---
-    cmds.push(this.CMD.ALIGN_CENTER);
-    cmds.push(this.CMD.BOLD_ON);
-    // Multiplier for larger text if supported, otherwise just bold
-    cmds.push(this.t((header.storeName || 'Tyde Cafe') + '\n'));
-    cmds.push(this.CMD.BOLD_OFF);
-    if (header.storeAddress) {
-      cmds.push(this.t(header.storeAddress + '\n'));
-    }
-    cmds.push(this.line('-'));
+    // --- Header Section ---
+    if (header) {
+      cmds.push(header.logoAlign === 'center' ? this.CMD.ALIGN_CENTER : header.logoAlign === 'right' ? this.CMD.ALIGN_RIGHT : this.CMD.ALIGN_LEFT);
+      
+      if (header.showStoreName) {
+        cmds.push(this.CMD.BOLD_ON);
+        cmds.push(this.t((header.storeName || 'Store Name') + '\n'));
+        cmds.push(this.CMD.BOLD_OFF);
+      }
+      
+      if (header.showAddress && header.storeAddress) {
+        cmds.push(this.t(header.storeAddress + '\n'));
+      }
+      
+      if (header.showPhone && header.storePhone) {
+        cmds.push(this.t(`Ph: ${header.storePhone}\n`));
+      }
 
-    // --- Meta Info ---
+      if (header.showTaxId && header.taxId) {
+        cmds.push(this.t(`${header.taxId}\n`));
+      }
+      cmds.push(this.line('-'));
+    }
+
+    // --- Meta Section (Customer/Table info) ---
     cmds.push(this.CMD.ALIGN_LEFT);
-    cmds.push(this.t(`Name: ${orderData.customerName || ''}\n`));
+    if (meta?.showCustomerName) {
+      cmds.push(this.t(`Name: ${orderData.customerName || 'Walk-In'}\n`));
+    }
+    if (meta?.showCustomerPhone && orderData.customerPhone) {
+        cmds.push(this.t(`Ph: ${orderData.customerPhone}\n`));
+    }
     cmds.push(this.line('-'));
 
     const dateStr = new Date().toLocaleDateString('en-GB');
     const timeStr = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     
-    // Two column meta row helper
     const twoCol = (left, right) => {
-      const spacing = charLimit - left.length - right.length;
-      return left + " ".repeat(Math.max(1, spacing)) + right + "\n";
+      const spacing = charLimit - (left?.length || 0) - (right?.length || 0);
+      return (left || "") + " ".repeat(Math.max(1, spacing)) + (right || "") + "\n";
     };
 
-    cmds.push(this.t(twoCol(`Date: ${dateStr}`, `${orderData.orderType || 'Dine In'}: ${orderData.tableName || 'N/A'}`)));
-    cmds.push(this.t(`${timeStr}\n`));
-    cmds.push(this.t(twoCol(`Cashier: ${orderData.cashierName || 'biller'}`, `Bill No.: ${orderData.billNo || '0000'}`)));
+    let metaRow1L = meta?.showDateTime ? `Date: ${dateStr}` : "";
+    let metaRow1R = meta?.showTableNo ? `${orderData.orderType || 'Table'}: ${orderData.tableName || 'N/A'}` : "";
+    if (metaRow1L || metaRow1R) cmds.push(this.t(twoCol(metaRow1L, metaRow1R)));
+
+    let metaRow2L = meta?.showDateTime ? timeStr : "";
+    if (metaRow2L) cmds.push(this.t(`${metaRow2L}\n`));
+
+    let metaRow3L = meta?.showCashierName ? `Cashier: ${orderData.cashierName || 'Staff'}` : "";
+    let metaRow3R = meta?.showOrderId ? `Bill No: ${orderData.billNo || '0000'}` : "";
+    if (metaRow3L || metaRow3R) cmds.push(this.t(twoCol(metaRow3L, metaRow3R)));
+    
     cmds.push(this.line('-'));
 
-    // --- Items Table ---
-    // Column widths: Item(22), Qty(6), Price(10), Amount(10) total = 48
-    const itemW = charLimit === 32 ? 14 : 22;
-    const qtyW = charLimit === 32 ? 4 : 6;
-    const priceW = charLimit === 32 ? 7 : 10;
-    const amountW = charLimit === 32 ? 7 : 10;
+    // --- Body Section (Items Table) ---
+    const showQty = body?.showQty !== false;
+    const showPrice = body?.showPrice !== false;
+    const showTotal = body?.showTotal !== false;
 
-    let tableHeader = "Item".padEnd(itemW) + "Qty.".padStart(qtyW) + "Price".padStart(priceW) + "Amount".padStart(amountW);
+    const priceW = showPrice ? (charLimit === 32 ? 7 : 10) : 0;
+    const amountW = showTotal ? (charLimit === 32 ? 7 : 10) : 0;
+    const qtyW = showQty ? (charLimit === 32 ? 4 : 6) : 0;
+    const itemW = charLimit - qtyW - priceW - amountW;
+
+    let tableHeader = "Item".padEnd(itemW);
+    if (showQty) tableHeader += "Qty.".padStart(qtyW);
+    if (showPrice) tableHeader += "Price".padStart(priceW);
+    if (showTotal) tableHeader += "Amount".padStart(amountW);
+    
     cmds.push(this.t(tableHeader + '\n'));
     cmds.push(this.line('-'));
 
     orderData.items.forEach(item => {
-      // Handle item name wrapping
       let name = item.name;
       let firstLine = name.substring(0, itemW).padEnd(itemW);
-      let qty = item.qty.toString().padStart(qtyW);
-      let price = item.price.toFixed(2).padStart(priceW);
-      let amount = (item.qty * item.price).toFixed(2).padStart(amountW);
+      let row = firstLine;
+      if (showQty) row += item.qty.toString().padStart(qtyW);
+      if (showPrice) row += item.price.toFixed(2).padStart(priceW);
+      if (showTotal) row += (item.qty * item.price).toFixed(2).padStart(amountW);
 
-      cmds.push(this.t(firstLine + qty + price + amount + '\n'));
+      if (body?.itemNameWeight === 'bold') cmds.push(this.CMD.BOLD_ON);
+      cmds.push(this.t(row + '\n'));
+      cmds.push(this.CMD.BOLD_OFF);
       
-      // If name is longer, print the rest below
       if (name.length > itemW) {
         cmds.push(this.t(name.substring(itemW) + '\n'));
       }
     });
     cmds.push(this.line('-'));
 
-    // --- Summary ---
+    // --- Summary Section ---
     const totalQty = orderData.items.reduce((acc, i) => acc + i.qty, 0);
-    
-    // Total Qty (leftish), Sub Total (label), Amount (right)
     const summaryCol = (left, mid, right) => {
-      // left is "Total Qty: X"
-      // mid is "Sub Total"
-      // right is amount
-      // We want mid and right to align
       const rightPart = mid.padEnd(15) + right.padStart(10);
       const leftPart = left.padEnd(charLimit - rightPart.length);
       return leftPart + rightPart + "\n";
@@ -131,7 +156,6 @@ export class EscPosGenerator {
     
     if (orderData.serviceCharge > 0) {
       cmds.push(this.t(summaryCol("", "Service Charge", orderData.serviceCharge?.toFixed(2))));
-      cmds.push(this.t(" ".repeat(charLimit - 25) + "(Optional)\n"));
     }
 
     if (orderData.roundOff !== 0) {
@@ -141,7 +165,6 @@ export class EscPosGenerator {
 
     cmds.push(this.line('-'));
     
-    // Grand Total Row
     cmds.push(this.CMD.BOLD_ON);
     const gtLabel = "Grand Total";
     const gtAmount = `₹${orderData.grandTotal?.toFixed(2)}`;
@@ -150,28 +173,30 @@ export class EscPosGenerator {
     cmds.push(this.CMD.BOLD_OFF);
     cmds.push(this.line('-'));
 
-    // --- Footer ---
-    cmds.push(this.CMD.ALIGN_CENTER);
-    if (footer.bottomText) {
-      cmds.push(this.t(footer.bottomText + '\n'));
-    } else {
-      cmds.push(this.t("Thank You for Visiting!\n"));
+    // --- Footer Section ---
+    if (footer) {
+      cmds.push(footer.align === 'center' ? this.CMD.ALIGN_CENTER : footer.align === 'right' ? this.CMD.ALIGN_RIGHT : this.CMD.ALIGN_LEFT);
+      if (footer.bottomText) {
+        cmds.push(this.t(footer.bottomText + '\n'));
+      }
+      if (footer.showWiFi && footer.wifiName) {
+        cmds.push(this.t(`WiFi: ${footer.wifiName} / ${footer.wifiPass || ''}\n`));
+      }
     }
 
-    // --- Cut ---
     cmds.push(this.t('\n\n\n\n'));
     cmds.push(this.CMD.CUT);
-
     return this.combine(cmds);
   }
 
   generateKOT(orderData, stationName = null) {
+    const { kot = {} } = this.settings;
     let cmds = [this.CMD.INIT];
     const charLimit = this.charLimit;
 
     cmds.push(this.CMD.ALIGN_CENTER);
     cmds.push(this.CMD.BOLD_ON);
-    cmds.push(this.t(`${stationName || 'KOT'}\n`));
+    cmds.push(this.t(`${stationName || kot.title || 'KOT'}\n`));
     cmds.push(this.CMD.BOLD_OFF);
     cmds.push(this.line('='));
     
@@ -180,12 +205,15 @@ export class EscPosGenerator {
     const timeStr = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     
     const twoCol = (left, right) => {
-      const spacing = charLimit - left.length - right.length;
-      return left + " ".repeat(Math.max(1, spacing)) + right + "\n";
+      const spacing = charLimit - (left?.length || 0) - (right?.length || 0);
+      return (left || "") + " ".repeat(Math.max(1, spacing)) + (right || "") + "\n";
     };
 
-    cmds.push(this.t(twoCol(`Table: ${orderData.tableName}`, `Date: ${dateStr}`)));
+    cmds.push(this.t(twoCol(`Table: ${orderData.tableName || 'N/A'}`, `Date: ${dateStr}`)));
     cmds.push(this.t(`Time: ${timeStr}\n`));
+    if (kot.showOrderType && orderData.orderType) {
+        cmds.push(this.t(`Type: ${orderData.orderType}\n`));
+    }
     cmds.push(this.line('-'));
     
     cmds.push(this.t("QTY  ITEM\n"));
