@@ -1923,11 +1923,31 @@ const PrinterSettingsView = ({ settings, onSaveSettings, categories }) => {
 
               <div>
                 <label style={{ fontSize: '13px', fontWeight: '900', color: '#1e293b', display: 'block', marginBottom: '8px' }}>Interface Type</label>
-                <select style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none' }}>
-                  <option>Web Serial (USB Thermal)</option>
-                  <option>Network (IP: 192.168.1.100)</option>
-                  <option>System Default (PDF/AirPrint)</option>
-                </select>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select style={{ flex: 1, padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none' }}>
+                    <option>Web Serial (USB Thermal)</option>
+                    <option>Network (IP: 192.168.1.100)</option>
+                    <option>System Default (PDF/AirPrint)</option>
+                  </select>
+                  <button 
+                    onClick={async () => {
+                      try {
+                        if (!('serial' in navigator)) {
+                          alert("Web Serial not supported in this browser.");
+                          return;
+                        }
+                        const port = await navigator.serial.requestPort();
+                        alert("Printer port authorized successfully! You can now print seamlessly.");
+                      } catch (e) {
+                        console.warn("User cancelled or failed to select port", e);
+                      }
+                    }}
+                    style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '0 16px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer' }}
+                  >
+                    SELECT PORT
+                  </button>
+                </div>
+                <p style={{ fontSize: '10px', color: '#64748b', marginTop: '6px' }}>Select your thermal printer port once to enable one-click printing.</p>
               </div>
             </div>
           )}
@@ -2490,11 +2510,32 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
     const printerConfig = await get('pos_printer_settings') || {};
     const generator = new EscPosGenerator(printerConfig);
 
-    if (!('serial' in navigator)) throw new Error('Web Serial API not supported.');
-    const port = await navigator.serial.requestPort();
+    if (!('serial' in navigator)) {
+      throw new Error('Web Serial API not supported in this browser. Please use Chrome, Edge, or Opera.');
+    }
+
+    // Try to get already authorized ports first to avoid annoying popups
+    let port;
+    const existingPorts = await navigator.serial.getPorts();
+    
+    if (existingPorts.length > 0) {
+      port = existingPorts[0];
+    } else {
+      try {
+        port = await navigator.serial.requestPort();
+      } catch (err) {
+        if (err.name === 'NotFoundError') {
+          console.log("User cancelled port selection.");
+          return; // Silent return if user cancelled
+        }
+        throw err;
+      }
+    }
+
+    if (!port) return;
+
     await port.open({ baudRate: 9600 });
     const writer = port.writable.getWriter();
-
 
     if (type === 'KOT') {
       let groupsToPrint = [];
@@ -2538,7 +2579,10 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
     await port.close();
   } catch (e) {
     console.error("Printing error:", e);
-    alert("Printing failed: " + e.message);
+    // Only alert if it's not a user-cancellation or expected flow interruption
+    if (e.name !== 'NotFoundError' && !e.message.includes('No port selected')) {
+       alert("Hardware Error: " + e.message + "\n\n1. Ensure printer is ON\n2. Check USB Cable\n3. Select port when prompted");
+    }
   }
 };
 
