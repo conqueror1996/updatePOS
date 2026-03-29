@@ -1934,7 +1934,17 @@ const PrinterSettingsView = ({ settings, onSaveSettings, categories }) => {
                       </div>
                     </div>
                   ))}
-                  <button style={{ padding: '12px', borderRadius: '12px', border: '2px dashed #e2e8f0', background: 'transparent', color: '#64748b', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}>+ Add New Profile</button>
+                  <button 
+                    onClick={() => {
+                      const newId = `profile_${Date.now()}`;
+                      const newProfile = { id: newId, name: 'New Profile', paperWidth: '80mm', interface: 'USB' };
+                      updateNested('printerProfiles', [...localSettings.printerProfiles, newProfile]);
+                      updateNested('selectedProfileId', newId);
+                    }}
+                    style={{ padding: '12px', borderRadius: '12px', border: '2px dashed #e2e8f0', background: 'transparent', color: '#64748b', fontSize: '12px', fontWeight: 'bold', cursor: 'pointer' }}
+                  >
+                    + Add New Profile
+                  </button>
                 </div>
               </div>
 
@@ -1952,10 +1962,17 @@ const PrinterSettingsView = ({ settings, onSaveSettings, categories }) => {
 
               <div>
                 <label style={{ fontSize: '13px', fontWeight: '900', color: '#1e293b', display: 'block', marginBottom: '8px' }}>Interface Type</label>
-                <select style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none' }}>
-                  <option>Web Serial (USB Thermal)</option>
-                  <option>Network (IP: 192.168.1.100)</option>
-                  <option>System Default (PDF/AirPrint)</option>
+                <select 
+                  value={localSettings.printerProfiles.find(p => p.id === localSettings.selectedProfileId)?.interface || 'USB'} 
+                  onChange={(e) => {
+                    const newProfiles = localSettings.printerProfiles.map(p => p.id === localSettings.selectedProfileId ? { ...p, interface: e.target.value } : p);
+                    updateNested('printerProfiles', newProfiles);
+                  }}
+                  style={{ width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #e2e8f0', outline: 'none' }}
+                >
+                  <option value="USB">Web Serial (USB Thermal)</option>
+                  <option value="LAN">Network (IP: 192.168.1.100)</option>
+                  <option value="SYSTEM">System Default (PDF/AirPrint)</option>
                 </select>
               </div>
             </div>
@@ -3840,6 +3857,18 @@ const QuickSettleModal = ({ table, settings, onClose, onSettle }) => {
   );
 };
 
+const deepMerge = (target, source) => {
+  const result = { ...target };
+  Object.keys(source).forEach(key => {
+    if (source[key] && typeof source[key] === 'object' && !Array.isArray(source[key])) {
+      result[key] = deepMerge(target[key] || {}, source[key]);
+    } else {
+      result[key] = source[key];
+    }
+  });
+  return result;
+};
+
 export default function App() {
   const [view, setView] = useState('tables');
   const [selectedTable, setSelectedTable] = useState(null);
@@ -3971,7 +4000,7 @@ export default function App() {
         if (savedNonTable) setNonTableOrders(savedNonTable);
 
         const savedSettings = await get('pos_printer_settings');
-        if (savedSettings) setSettings(prev => ({ ...prev, ...savedSettings }));
+        if (savedSettings) setSettings(prev => deepMerge(prev, savedSettings));
 
         const savedCustomers = await get('pos_customers');
         if (savedCustomers) setCustomers(savedCustomers);
