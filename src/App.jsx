@@ -311,7 +311,7 @@ const AppSidebar = ({ activeView, onViewChange }) => {
       <div style={{ padding: '20px', borderTop: '1px solid #f1f5f9' }}>
          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8' }}>
             <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1', boxShadow: '0 0 8px #6366f1' }}></div>
-            <span style={{ fontSize: '10px', fontWeight: '900', letterSpacing: '0.5px' }}>v1.0.2 (STABLE)</span>
+            <span style={{ fontSize: '10px', fontWeight: '900', letterSpacing: '0.5px' }}>v1.0.3 (STABLE)</span>
          </div>
       </div>
     </div>
@@ -1902,6 +1902,7 @@ const PrinterSettingsView = ({ settings, onSaveSettings, categories }) => {
     { id: 'body', label: 'Bill Items', icon: Layers },
     { id: 'footer', label: 'Branding', icon: FileText },
     { id: 'kot', label: 'Kitchen (KOT)', icon: Utensils },
+    { id: 'stations', label: 'Stations', icon: LayoutGrid },
     { id: 'advanced', label: 'Engine', icon: Settings2 }
   ];
 
@@ -2208,6 +2209,91 @@ const PrinterSettingsView = ({ settings, onSaveSettings, categories }) => {
                       </div>
                    </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'stations' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <h4 style={{ fontSize: '13px', fontWeight: 'bold', color: '#111827' }}>Printer Stations</h4>
+                  <p style={{ fontSize: '10px', color: '#64748b' }}>Route categories to specific kitchen stations</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    const newId = Date.now().toString();
+                    const newStation = { id: newId, name: `New Station`, categories: [] };
+                    updateNested('printerStations', [...(localSettings.printerStations || []), newStation]);
+                  }}
+                  style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '10px', fontSize: '11px', fontWeight: 'bold', cursor: 'pointer', boxShadow: '0 4px 6px -1px rgba(124, 58, 237, 0.2)' }}
+                >
+                  + Add Station
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {(localSettings.printerStations || []).map(station => (
+                  <div key={station.id} style={{ background: 'white', padding: '16px', borderRadius: '16px', border: '1px solid #f1f5f9', boxShadow: '0 1px 3px rgba(0,0,0,0.02)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--primary)' }}></div>
+                        <input 
+                          type="text" 
+                          value={station.name} 
+                          onChange={e => {
+                            const newStations = localSettings.printerStations.map(s => s.id === station.id ? { ...s, name: e.target.value } : s);
+                            updateNested('printerStations', newStations);
+                          }}
+                          style={{ fontSize: '14px', fontWeight: 'bold', border: 'none', background: 'transparent', outline: 'none', color: '#1e293b' }}
+                          placeholder="Station Name..."
+                        />
+                      </div>
+                      <button 
+                        onClick={() => {
+                          const newStations = localSettings.printerStations.filter(s => s.id !== station.id);
+                          updateNested('printerStations', newStations);
+                        }}
+                        style={{ background: '#fef2f2', color: '#94161c', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '10px', fontWeight: 'bold', cursor: 'pointer' }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                    
+                    <div style={{ fontSize: '10px', fontWeight: '900', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Route Categories</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {categories.map(cat => {
+                        const isSelected = station.categories.includes(cat);
+                        return (
+                          <button 
+                            key={cat}
+                            onClick={() => {
+                              const newCats = isSelected 
+                                ? station.categories.filter(c => c !== cat)
+                                : [...station.categories, cat];
+                              const newStations = localSettings.printerStations.map(s => s.id === station.id ? { ...s, categories: newCats } : s);
+                              updateNested('printerStations', newStations);
+                            }}
+                            style={{ 
+                              padding: '6px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', border: '1px solid #f1f5f9', cursor: 'pointer',
+                              background: isSelected ? 'var(--primary)' : '#f8fafc',
+                              color: isSelected ? 'white' : '#64748b',
+                              transition: 'all 0.2s'
+                            }}
+                          >
+                            {cat}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                {(localSettings.printerStations || []).length === 0 && (
+                  <div style={{ padding: '32px', textAlign: 'center', background: '#f8fafc', borderRadius: '16px', border: '2px dashed #e2e8f0' }}>
+                    <LayoutGrid size={32} color="#cbd5e1" style={{ margin: '0 auto 12px' }} />
+                    <p style={{ fontSize: '12px', color: '#94a3b8', fontWeight: 'bold' }}>No custom stations defined.</p>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -2598,7 +2684,9 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
   } catch (e) { }
 
   try {
-    const printerConfig = await get('pos_printer_settings') || {};
+    const settings = await get('pos_printer_settings') || {};
+    const activeProfile = settings.printerProfiles?.find(p => p.id === settings.selectedProfileId) || settings.printerProfiles?.[0] || {};
+    const printerConfig = { ...settings, ...activeProfile };
     const generator = new EscPosGenerator(printerConfig);
 
     if (!('serial' in navigator)) {
@@ -4007,7 +4095,11 @@ export default function App() {
       fontSize: 14,
       fontWeight: 'bold',
       separator: 'dotted'
-    }
+    },
+    printerStations: [
+      { id: '1', name: 'Kitchen', categories: [] },
+      { id: '2', name: 'Bar', categories: [] }
+    ]
   });
   const [menuItems, setMenuItems] = useState(INITIAL_MENU_ITEMS);
   const [products, setProducts] = useState([...INITIAL_PRODUCTS]);

@@ -178,7 +178,8 @@ export class EscPosGenerator {
     const charLimit = this.charLimit;
 
     cmds.push(this.CMD.ALIGN_CENTER);
-    cmds.push(this.t("Running Table\n"));
+    const stationTitle = (stationName || "Running Table").toUpperCase();
+    cmds.push(this.t(stationTitle + "\n"));
     
     const dateStr = new Date().toLocaleDateString('en-GB');
     const timeStr = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
