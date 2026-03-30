@@ -311,7 +311,7 @@ const AppSidebar = ({ activeView, onViewChange }) => {
       <div style={{ padding: '20px', borderTop: '1px solid #f1f5f9' }}>
          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8' }}>
             <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1', boxShadow: '0 0 8px #6366f1' }}></div>
-            <span style={{ fontSize: '10px', fontWeight: '900', letterSpacing: '0.5px' }}>v1.0.3 (STABLE)</span>
+            <span style={{ fontSize: '10px', fontWeight: '900', letterSpacing: '0.5px' }}>v1.0.4 (STABLE)</span>
          </div>
       </div>
     </div>
@@ -2443,11 +2443,6 @@ const TableManagement = ({ tables, floorPlanSections, onSelectTable, onClearTabl
                             <CheckSquare size={12} />
                           </div>
                         </div>
-                        <div style={{ position: 'absolute', bottom: '12px', right: '12px', display: 'flex', gap: '4px' }}>
-                          <div onClick={(e) => { e.stopPropagation(); setTableToClear(table.id); }} style={{ padding: '6px', background: '#fee2e2', borderRadius: '8px', cursor: 'pointer' }}>
-                            <Trash2 size={12} color="#ef4444" />
-                          </div>
-                        </div>
                       </>
                     )}
                   </div>
@@ -2478,9 +2473,6 @@ const TableManagement = ({ tables, floorPlanSections, onSelectTable, onClearTabl
                         <div style={{ position: 'absolute', top: '35px', right: '10px', display: 'flex', gap: '6px' }}>
                           <div title="Print Bill" onClick={(e) => { e.stopPropagation(); onQuickPrint(table); }} style={{ padding: '4px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '4px', cursor: 'pointer' }}><Printer size={12} color="#64748b" /></div>
                           <div title="Settle Bill" onClick={(e) => { e.stopPropagation(); onQuickSettle(table); }} style={{ padding: '4px', background: 'var(--primary)', color: 'white', borderRadius: '4px', cursor: 'pointer' }}><CheckSquare size={12} /></div>
-                        </div>
-                        <div onClick={(e) => { e.stopPropagation(); setTableToClear(table.id); }} style={{ position: 'absolute', bottom: '10px', right: '10px', padding: '6px', background: '#fee2e2', borderRadius: '8px', cursor: 'pointer' }}>
-                          <Trash2 size={12} color="#ef4444" />
                         </div>
                       </>
                     )}
@@ -2814,6 +2806,9 @@ const OrderingSystem = ({ table, tables, nonTableOrders, initialOrder, onBack, o
   const [discountAuth, setDiscountAuth] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [isPaid, setIsPaid] = useState(false);
+  const [amountPaidStr, setAmountPaidStr] = useState('');
+  const amountPaid = parseFloat(amountPaidStr) || 0;
+  const changeDue = amountPaid > grandTotal ? amountPaid - grandTotal : 0;
 
   // Calculations
   const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
@@ -3259,50 +3254,62 @@ const OrderingSystem = ({ table, tables, nonTableOrders, initialOrder, onBack, o
             )}
           </div>
 
-          <div style={{ padding: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff' }}>
-            <div>
-              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' }}>Total Amount</div>
-              <div style={{ fontSize: '24px', fontWeight: '900', color: '#94161c' }}>₹{grandTotal.toFixed(2)}</div>
-              {splitWays > 1 && <div style={{ fontSize: '11px', color: '#94161c', fontWeight: 'bold' }}>₹{(grandTotal / splitWays).toFixed(2)} / person</div>}
-            </div>
+          <div style={{ padding: '16px', background: '#fff', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                   <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 'bold', textTransform: 'uppercase' }}>Amount to Pay</div>
+                   <div style={{ fontSize: '24px', fontWeight: '900', color: '#94161c' }}>₹{grandTotal.toFixed(2)}</div>
+                </div>
+                <div style={{ display: 'flex', gap: '4px' }}>
+                  {['Cash', 'Card', 'UPI'].map(method => (
+                    <button
+                      key={method}
+                      onClick={() => setPaymentMethod(method)}
+                      style={{
+                        padding: '10px 14px', borderRadius: '8px', border: '1px solid',
+                        borderColor: paymentMethod === method ? '#94161c' : '#e2e8f0',
+                        background: paymentMethod === method ? '#94161c' : 'white',
+                        color: paymentMethod === method ? 'white' : '#64748b',
+                        fontSize: '11px', fontWeight: 'bold', cursor: 'pointer'
+                      }}
+                    >
+                      {method}
+                    </button>
+                  ))}
+                </div>
+             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{ display: 'flex', gap: '4px' }}>
-                {['Cash', 'Card', 'UPI'].map(method => (
-                  <button
-                    key={method}
-                    onClick={() => setPaymentMethod(method)}
-                    style={{
-                      padding: '8px 12px',
-                      borderRadius: '6px',
-                      border: '1px solid',
-                      borderColor: paymentMethod === method ? '#94161c' : '#e2e8f0',
-                      background: paymentMethod === method ? '#fef2f2' : 'white',
-                      color: paymentMethod === method ? '#94161c' : '#64748b',
-                      fontSize: '11px',
-                      fontWeight: 'bold',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    {method}
-                  </button>
-                ))}
-              </div>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
-                <input type="checkbox" checked={isPaid} onChange={() => setIsPaid(!isPaid)} />
-                <span style={{ fontSize: '11px', fontWeight: 'bold', color: '#475569' }}>Mark as Paid</span>
-              </label>
-            </div>
+             {paymentMethod === 'Cash' && (
+               <div style={{ display: 'flex', gap: '12px', alignItems: 'center', background: '#f8fafc', padding: '12px', borderRadius: '12px', border: '1px solid #e2e8f0' }}>
+                  <div style={{ flex: 1 }}>
+                     <label style={{ display: 'block', fontSize: '9px', fontWeight: 'bold', color: '#64748b', marginBottom: '4px', textTransform: 'uppercase' }}>Cash Tendered (By Customer)</label>
+                     <input 
+                        type="number" 
+                        value={amountPaidStr} 
+                        onChange={e => setAmountPaidStr(e.target.value)} 
+                        placeholder="0.00"
+                        style={{ width: '100%', border: 'none', background: 'transparent', fontSize: '18px', fontWeight: '900', outline: 'none', color: '#1e293b' }}
+                     />
+                  </div>
+                  {amountPaid >= grandTotal && (
+                    <div style={{ textAlign: 'right', borderLeft: '1px solid #e2e8f0', paddingLeft: '12px' }}>
+                       <div style={{ fontSize: '9px', fontWeight: 'bold', color: '#10b981', textTransform: 'uppercase' }}>Change Due</div>
+                       <div style={{ fontSize: '18px', fontWeight: '900', color: '#10b981' }}>₹{changeDue.toFixed(2)}</div>
+                    </div>
+                  )}
+               </div>
+             )}
           </div>
 
-          <div className="footer-btn-grid">
-            <button className="btn-maroon" onClick={() => handleAction('Save')}>Save</button>
-            <button className="btn-maroon" onClick={() => handleAction('Print Bill')}>Print Bill</button>
-            <button className="btn-grey" onClick={() => handleAction('KOT')}>KOT</button>
-            <button className="btn-grey" style={{ background: '#374151' }} onClick={() => handleAction('KOT & Print')}>KOT & Print</button>
+          <div className="footer-btn-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '8px', padding: '0 16px 16px', background: '#fff' }}>
+            <button className="btn-grey" style={{ background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0', fontSize: '11px', fontWeight: 'bold' }} onClick={() => handleAction('Save')}>SAVE / SEND KOT</button>
+            <button className="btn-maroon" style={{ fontSize: '11px', fontWeight: 'bold' }} onClick={() => handleAction('Print Bill')}>PRINT BILL</button>
+            <button className="btn-maroon" style={{ background: '#111827', fontSize: '11px', fontWeight: 'bold' }} onClick={() => {
+              if (paymentMethod === 'Cash' && amountPaid < grandTotal) {
+                if (!window.confirm(`Amount tendered (₹${amountPaid}) is less than total (₹${grandTotal}). Settle anyway?`)) return;
+              }
+              onSettleTable(table.id, { cart, subtotal, discountAmt, redeemedPoints, discountAuth, taxes: 0, grandTotal, paymentMethod, amountPaid, changeDue, timestamp: new Date().toISOString(), phone: customerPhone, customerName, note: orderNote });
+            }}>SETTLE BILL</button>
           </div>
         </div>
       </div>
