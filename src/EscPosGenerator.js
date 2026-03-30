@@ -136,7 +136,7 @@ export class EscPosGenerator {
     cmds.push(this.t(qtyLabel.padEnd(qLabelW) + subLabel.padEnd(subSpacing) + subTotalVal + "\n"));
     cmds.push(this.t(" ".repeat(qLabelW) + "Total\n"));
 
-    if (orderData.serviceCharge > 0) {
+    if (orderData.serviceCharge && orderData.serviceCharge > 0) {
         const scLabel = "Service Charge";
         const scStr = orderData.serviceCharge.toFixed(2);
         const scSpacing = charLimit - qLabelW - scStr.length;
@@ -146,7 +146,7 @@ export class EscPosGenerator {
 
     cmds.push(this.line('-'));
 
-    if (orderData.roundOff !== 0) {
+    if (orderData.roundOff && orderData.roundOff !== 0) {
       const roLabel = "Round off";
       const roStr = (orderData.roundOff > 0 ? "+" : "") + orderData.roundOff.toFixed(2);
       cmds.push(this.t(roLabel.padStart(charLimit - roStr.length) + roStr + "\n"));

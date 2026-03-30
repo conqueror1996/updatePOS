@@ -311,7 +311,7 @@ const AppSidebar = ({ activeView, onViewChange }) => {
       <div style={{ padding: '20px', borderTop: '1px solid #f1f5f9' }}>
          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8' }}>
             <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1', boxShadow: '0 0 8px #6366f1' }}></div>
-            <span style={{ fontSize: '10px', fontWeight: '900', letterSpacing: '0.5px' }}>v1.0.6 (STABLE)</span>
+            <span style={{ fontSize: '10px', fontWeight: '900', letterSpacing: '0.5px' }}>v1.0.8 (STABLE)</span>
          </div>
       </div>
     </div>
@@ -2807,9 +2807,6 @@ const OrderingSystem = ({ table, tables, nonTableOrders, initialOrder, onBack, o
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [isPaid, setIsPaid] = useState(false);
   const [amountPaidStr, setAmountPaidStr] = useState('');
-  const amountPaid = parseFloat(amountPaidStr) || 0;
-  const changeDue = amountPaid > grandTotal ? amountPaid - grandTotal : 0;
-
   // Calculations
   const subtotal = cart.reduce((acc, item) => acc + (item.price * item.qty), 0);
   const discountAmt = applyDiscount ? (subtotal * (discountRate / 100)) : 0;
@@ -2818,6 +2815,9 @@ const OrderingSystem = ({ table, tables, nonTableOrders, initialOrder, onBack, o
   const rawTotal = taxableAmount + serviceCharge;
   const grandTotal = Math.round(rawTotal);
   const roundOff = grandTotal - rawTotal;
+
+  const amountPaid = parseFloat(amountPaidStr) || 0;
+  const changeDue = amountPaid > grandTotal ? amountPaid - grandTotal : 0;
 
   // Calculate globally reserved stock (qty already in other running tables/orders)
   // This satisfies the "live update" requirement so punched orders reflect immediately across the floor.
