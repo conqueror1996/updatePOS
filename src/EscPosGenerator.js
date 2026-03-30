@@ -45,207 +45,181 @@ export class EscPosGenerator {
   }
 
   line(char = '-') {
-    return this.t(char.repeat(this.charLimit) + '\n');
+    return this.t(char.repeat(this.charLimit) + "\n");
   }
 
   generateBill(orderData) {
-    const { header, meta, body, footer, advanced } = this.settings;
+    const { header, meta, body, footer } = this.settings;
     let cmds = [this.CMD.INIT];
     const charLimit = this.charLimit;
 
     // --- Header Section ---
-    if (header) {
-      cmds.push(header.logoAlign === 'center' ? this.CMD.ALIGN_CENTER : header.logoAlign === 'right' ? this.CMD.ALIGN_RIGHT : this.CMD.ALIGN_LEFT);
-      
-      if (header.showStoreName) {
-        cmds.push(this.CMD.BOLD_ON);
-        cmds.push(this.t((header.storeName || 'Store Name') + '\n'));
-        cmds.push(this.CMD.BOLD_OFF);
-      }
-      
-      if (header.showAddress && header.storeAddress) {
-        cmds.push(this.t(header.storeAddress + '\n'));
-      }
-      
-      if (header.showPhone && header.storePhone) {
-        cmds.push(this.t(`Ph: ${header.storePhone}\n`));
-      }
-
-      if (header.showTaxId && header.taxId) {
-        cmds.push(this.t(`${header.taxId}\n`));
-      }
-      cmds.push(this.line('-'));
+    cmds.push(this.CMD.ALIGN_CENTER);
+    if (header?.showStoreName) {
+      cmds.push(this.CMD.BOLD_ON);
+      cmds.push(this.t((header.storeName || 'Store Name') + "\n"));
+      cmds.push(this.CMD.BOLD_OFF);
     }
-
-    // --- Meta Section (Customer/Table info) ---
+    if (header?.showAddress && header.storeAddress) {
+      cmds.push(this.t(header.storeAddress + "\n"));
+    }
     cmds.push(this.CMD.ALIGN_LEFT);
-    if (meta?.showCustomerName) {
-      cmds.push(this.t(`Name: ${orderData.customerName || 'Walk-In'}\n`));
-    }
-    if (meta?.showCustomerPhone && orderData.customerPhone) {
-        cmds.push(this.t(`Ph: ${orderData.customerPhone}\n`));
-    }
     cmds.push(this.line('-'));
 
-    const dateStr = new Date().toLocaleDateString('en-GB');
-    const timeStr = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    // --- Customer Name Placeholder ---
+    cmds.push(this.t("Name: " + "_".repeat(charLimit - 6) + "\n"));
+    cmds.push(this.line('-'));
+
+    // --- Meta Info ---
+    const dateStr = new Date(orderData.timestamp || Date.now()).toLocaleDateString('en-GB');
+    const timeStr = new Date(orderData.timestamp || Date.now()).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     
-    const twoCol = (left, right) => {
+    const twoCol = (left, right, rightBold = false) => {
       const spacing = charLimit - (left?.length || 0) - (right?.length || 0);
-      return (left || "") + " ".repeat(Math.max(1, spacing)) + (right || "") + "\n";
+      let r = (left || "") + " ".repeat(Math.max(1, spacing));
+      return r;
     };
 
-    let metaRow1L = meta?.showDateTime ? `Date: ${dateStr}` : "";
-    let metaRow1R = meta?.showTableNo ? `${orderData.orderType || 'Table'}: ${orderData.tableName || 'N/A'}` : "";
-    if (metaRow1L || metaRow1R) cmds.push(this.t(twoCol(metaRow1L, metaRow1R)));
+    // Row 1: Date | Dine In: Table
+    const row1L = `Date: ${dateStr}`;
+    const row1R = `${orderData.orderType || 'Dine In'}: ${orderData.tableName || orderData.tableId || 'N/A'}`;
+    const r1Spacing = charLimit - row1L.length - row1R.length;
+    cmds.push(this.t(row1L + " ".repeat(Math.max(1, r1Spacing))));
+    cmds.push(this.CMD.BOLD_ON);
+    cmds.push(this.t(row1R + "\n"));
+    cmds.push(this.CMD.BOLD_OFF);
 
-    let metaRow2L = meta?.showDateTime ? timeStr : "";
-    if (metaRow2L) cmds.push(this.t(`${metaRow2L}\n`));
+    // Row 2: Time
+    cmds.push(this.t(timeStr + "\n"));
 
-    let metaRow3L = meta?.showCashierName ? `Cashier: ${orderData.cashierName || 'Staff'}` : "";
-    let metaRow3R = meta?.showOrderId ? `Bill No: ${orderData.billNo || '0000'}` : "";
-    if (metaRow3L || metaRow3R) cmds.push(this.t(twoCol(metaRow3L, metaRow3R)));
-    
+    // Row 3: Cashier | Bill No
+    const row3L = `Cashier: ${orderData.cashierName || 'biller'}`;
+    const row3R = `Bill No.: ${orderData.billNo || orderData.id || '0000'}`;
+    const r3Spacing = charLimit - row3L.length - row3R.length;
+    cmds.push(this.t(row3L + " ".repeat(Math.max(1, r3Spacing)) + row3R + "\n"));
+
     cmds.push(this.line('-'));
 
-    // --- Body Section (Items Table) ---
-    const showQty = body?.showQty !== false;
-    const showPrice = body?.showPrice !== false;
-    const showTotal = body?.showTotal !== false;
-
-    const priceW = showPrice ? (charLimit === 32 ? 7 : 10) : 0;
-    const amountW = showTotal ? (charLimit === 32 ? 7 : 10) : 0;
-    const qtyW = showQty ? (charLimit === 32 ? 4 : 6) : 0;
+    // --- Body (Items) ---
+    const qtyW = 4;
+    const priceW = 8;
+    const amountW = 9;
     const itemW = charLimit - qtyW - priceW - amountW;
 
-    let tableHeader = "Item".padEnd(itemW);
-    if (showQty) tableHeader += "Qty.".padStart(qtyW);
-    if (showPrice) tableHeader += "Price".padStart(priceW);
-    if (showTotal) tableHeader += "Amount".padStart(amountW);
-    
-    cmds.push(this.t(tableHeader + '\n'));
+    let tableHeader = "Item".padEnd(itemW) + "Qty".padStart(qtyW) + "Price".padStart(priceW) + "Amount".padStart(amountW);
+    cmds.push(this.t(tableHeader + "\n"));
     cmds.push(this.line('-'));
 
-    orderData.items.forEach(item => {
+    (orderData.items || orderData.cart || []).forEach(item => {
       let name = item.name;
       let firstLine = name.substring(0, itemW).padEnd(itemW);
-      let row = firstLine;
-      if (showQty) row += item.qty.toString().padStart(qtyW);
-      if (showPrice) row += item.price.toFixed(2).padStart(priceW);
-      if (showTotal) row += (item.qty * item.price).toFixed(2).padStart(amountW);
-
-      if (body?.itemNameWeight === 'bold') cmds.push(this.CMD.BOLD_ON);
-      cmds.push(this.t(row + '\n'));
-      cmds.push(this.CMD.BOLD_OFF);
+      let row = firstLine + item.qty.toString().padStart(qtyW) + item.price.toFixed(2).padStart(priceW) + (item.qty * item.price).toFixed(2).padStart(amountW);
+      cmds.push(this.t(row + "\n"));
       
       if (name.length > itemW) {
-        cmds.push(this.t(name.substring(itemW) + '\n'));
+        cmds.push(this.t(name.substring(itemW) + "\n"));
       }
     });
     cmds.push(this.line('-'));
 
-    // --- Summary Section ---
-    const totalQty = orderData.items.reduce((acc, i) => acc + i.qty, 0);
-    const summaryCol = (left, mid, right) => {
-      const rightPart = mid.padEnd(15) + right.padStart(10);
-      const leftPart = left.padEnd(charLimit - rightPart.length);
-      return leftPart + rightPart + "\n";
-    };
-
-    cmds.push(this.t(summaryCol(`Total Qty: ${totalQty}`, "Sub Total", orderData.subtotal?.toFixed(2))));
+    // --- Summary ---
+    const totalQty = (orderData.items || orderData.cart || []).reduce((acc, i) => acc + i.qty, 0);
+    const subTotalVal = (orderData.subtotal || 0).toFixed(2);
+    const qtyLabel = `Total Qty: ${totalQty}`;
     
-    if (orderData.serviceCharge > 0) {
-      cmds.push(this.t(summaryCol("", "Service Charge", orderData.serviceCharge?.toFixed(2))));
-    }
+    // Line 1: [Total Qty: 2] [Sub] [Value]
+    const qLabelW = 20;
+    const subLabel = "Sub";
+    const subSpacing = charLimit - qLabelW - subTotalVal.length;
+    cmds.push(this.t(qtyLabel.padEnd(qLabelW) + subLabel.padEnd(subSpacing) + subTotalVal + "\n"));
+    
+    // Line 2: [ ] [Total]
+    cmds.push(this.t(" ".repeat(qLabelW) + "Total\n"));
 
-    if (orderData.roundOff !== 0) {
-      const roStr = (orderData.roundOff > 0 ? "+" : "") + orderData.roundOff.toFixed(2);
-      cmds.push(this.t(summaryCol("", "Round off", roStr)));
+    if (orderData.serviceCharge > 0) {
+        const scLabel = "Service Charge";
+        const scStr = orderData.serviceCharge.toFixed(2);
+        const scSpacing = charLimit - qLabelW - scStr.length;
+        cmds.push(this.t(scLabel.padStart(qLabelW + scLabel.length - qLabelW) + " ".repeat(subSpacing) + scStr + "\n"));
+        cmds.push(this.t(" ".repeat(qLabelW - 8) + "(Optional)\n")); // Slightly indented under Service Charge
     }
 
     cmds.push(this.line('-'));
-    
+
+    if (orderData.roundOff !== 0) {
+      const roLabel = "Round off";
+      const roStr = (orderData.roundOff > 0 ? "+" : "") + orderData.roundOff.toFixed(2);
+      const roSpacing = charLimit - roLabel.length - roStr.length;
+      cmds.push(this.t(roLabel.padStart(charLimit - roStr.length) + roStr + "\n"));
+    }
+
+    // Grand Total
     cmds.push(this.CMD.BOLD_ON);
     const gtLabel = "Grand Total";
-    const gtAmount = `₹${orderData.grandTotal?.toFixed(2)}`;
+    const gtAmount = `₹${(orderData.grandTotal || 0).toFixed(2)}`;
     const gtSpacing = charLimit - gtLabel.length - gtAmount.length;
-    cmds.push(this.t(gtLabel + " ".repeat(Math.max(1, gtSpacing)) + gtAmount + '\n'));
+    cmds.push(this.t(gtLabel.padStart(charLimit - gtAmount.length) + gtAmount + "\n"));
     cmds.push(this.CMD.BOLD_OFF);
     cmds.push(this.line('-'));
 
-    // --- Footer Section ---
-    if (footer) {
-      cmds.push(footer.align === 'center' ? this.CMD.ALIGN_CENTER : footer.align === 'right' ? this.CMD.ALIGN_RIGHT : this.CMD.ALIGN_LEFT);
-      if (footer.bottomText) {
-        cmds.push(this.t(footer.bottomText + '\n'));
-      }
-      if (footer.showWiFi && footer.wifiName) {
-        cmds.push(this.t(`WiFi: ${footer.wifiName} / ${footer.wifiPass || ''}\n`));
-      }
+    // --- Footer ---
+    if (footer?.bottomText) {
+      cmds.push(this.CMD.ALIGN_CENTER);
+      cmds.push(this.t(footer.bottomText + "\n"));
     }
 
-    cmds.push(this.t('\n\n\n\n'));
+    cmds.push(this.t("\n\n\n\n"));
     cmds.push(this.CMD.CUT);
     return this.combine(cmds);
   }
 
   generateKOT(orderData, stationName = null) {
-    const { kot = {} } = this.settings;
     let cmds = [this.CMD.INIT];
     const charLimit = this.charLimit;
 
     cmds.push(this.CMD.ALIGN_CENTER);
-    cmds.push(this.CMD.BOLD_ON);
-    // Bigger Font for title if it's 80mm
-    if (charLimit === 48) cmds.push(new Uint8Array([0x1B, 0x21, 0x10])); // Double Height
-    cmds.push(this.t(`${stationName || kot.title || 'KOT'}\n`));
-    cmds.push(new Uint8Array([0x1B, 0x21, 0x01])); // Reset
-    cmds.push(this.CMD.BOLD_OFF);
-    cmds.push(this.line('='));
+    cmds.push(this.t("Running Table\n"));
     
-    cmds.push(this.CMD.ALIGN_LEFT);
     const dateStr = new Date().toLocaleDateString('en-GB');
     const timeStr = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+    cmds.push(this.t(`${dateStr} ${timeStr}\n`));
     
-    const twoCol = (left, right) => {
-      const spacing = charLimit - (left?.length || 0) - (right?.length || 0);
-      return (left || "") + " ".repeat(Math.max(1, spacing)) + (right || "") + "\n";
-    };
+    cmds.push(this.t(`KOT - ${orderData.kotNo || orderData.id || '000'}\n`));
+    
+    cmds.push(this.CMD.BOLD_ON);
+    cmds.push(this.t(`${orderData.orderType || 'Dine In'}\n`));
+    cmds.push(this.t(`Table No: ${orderData.tableName || orderData.tableId || 'N/A'}\n`));
+    cmds.push(this.CMD.BOLD_OFF);
 
-    cmds.push(this.t(twoCol(`Table: ${orderData.tableName || 'N/A'}`, `Date: ${dateStr}`)));
-    cmds.push(this.t(`Time: ${timeStr}\n`));
-    
-    // Priority: Display Customer Name on KOT
-    if (orderData.customerName) {
-        cmds.push(this.CMD.BOLD_ON);
-        cmds.push(this.t(`Customer: ${orderData.customerName}\n`));
-        cmds.push(this.CMD.BOLD_OFF);
-    }
+    cmds.push(this.line('.')); // Dotted separator
 
-    if (kot.showOrderType && orderData.orderType) {
-        cmds.push(this.t(`Type: ${orderData.orderType}\n`));
-    }
-    cmds.push(this.line('-'));
-    
-    cmds.push(this.t("QTY  ITEM\n"));
-    cmds.push(this.line('-'));
-    
-    orderData.items.forEach(item => {
-      cmds.push(this.CMD.BOLD_ON); // Set entire line bold
-      // Use Double Height for KOT items on 80mm if needed, but Bold is minimum
-      cmds.push(this.t(`${item.qty.toString().padEnd(5)}${item.name}\n`));
+    cmds.push(this.CMD.ALIGN_LEFT);
+    const qtyW = 5;
+    const noteW = Math.floor((charLimit - qtyW) * 0.4);
+    const itemW = charLimit - qtyW - noteW;
+
+    let header = "Item".padEnd(itemW) + "Special Note".padEnd(noteW) + "Qty".padStart(qtyW);
+    cmds.push(this.t(header + "\n"));
+
+    (orderData.items || orderData.cart || []).forEach(item => {
+      cmds.push(this.CMD.BOLD_ON);
+      let namePart = item.name.substring(0, itemW - 1).padEnd(itemW);
+      cmds.push(this.t(namePart));
       cmds.push(this.CMD.BOLD_OFF);
-      if (item.note) {
-          cmds.push(this.CMD.BOLD_ON);
-          cmds.push(this.t(`  * NOTE: ${item.note}\n`));
-          cmds.push(this.CMD.BOLD_OFF);
+
+      let notePart = (item.note || "--").substring(0, noteW - 1).padEnd(noteW);
+      let qtyPart = item.qty.toString().padStart(qtyW);
+      cmds.push(this.t(notePart + qtyPart + "\n"));
+
+      if (item.name.length >= itemW) {
+        cmds.push(this.t(item.name.substring(itemW - 1) + "\n"));
       }
     });
-    
-    cmds.push(this.line('='));
-    cmds.push(this.t('\n\n\n\n'));
+
+    cmds.push(this.line('.'));
+    cmds.push(this.t("\n\n\n\n"));
     cmds.push(this.CMD.CUT);
-    
+
     return this.combine(cmds);
   }
 }

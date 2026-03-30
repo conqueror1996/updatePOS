@@ -311,7 +311,7 @@ const AppSidebar = ({ activeView, onViewChange }) => {
       <div style={{ padding: '20px', borderTop: '1px solid #f1f5f9' }}>
          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8' }}>
             <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#6366f1', boxShadow: '0 0 8px #6366f1' }}></div>
-            <span style={{ fontSize: '10px', fontWeight: '900', letterSpacing: '0.5px' }}>v1.0.1 (STABLE)</span>
+            <span style={{ fontSize: '10px', fontWeight: '900', letterSpacing: '0.5px' }}>v1.0.2 (STABLE)</span>
          </div>
       </div>
     </div>
@@ -2657,7 +2657,7 @@ const printPosToSerial = async (orderData, type = 'BILL') => {
       }
 
       for (const group of groupsToPrint) {
-        const bytes = generator.generateKOT(group, group.title);
+        const bytes = generator.generateKOT({ ...group, kotNo: seqNumber }, group.title);
         await writer.write(bytes);
       }
     } else {
@@ -3947,7 +3947,7 @@ export default function App() {
       logoAlign: 'center',
       logoSize: 60,
       storeName: 'Tyde Cafe',
-      storeAddress: 'Seawood Estate, Nerul',
+      storeAddress: 'Nerul Ferry Terminal',
       storePhone: '+91 8652475772',
       storeEmail: 'hello@tydecafe.com',
       taxId: 'GST: 27AABCV1234F1Z1',
@@ -3979,10 +3979,10 @@ export default function App() {
       itemNameSize: 12,
       itemNameWeight: 'normal',
       itemPriceSize: 12,
-      separator: 'dashed' // solid, dashed, none
+      separator: 'solid'
     },
     footer: {
-      bottomText: 'This is a computer generated bill.\nThank you for visiting us!',
+      bottomText: 'Sea you soon — under the moon',
       fontSize: 10,
       fontWeight: 'normal',
       align: 'center',
@@ -3999,14 +3999,14 @@ export default function App() {
       margins: { top: 2, bottom: 5, left: 2, right: 2 }
     },
     kot: {
-      title: 'KOT',
+      title: 'Running Table',
       showOrderType: true,
       showTableNo: true,
       showDateTime: true,
       showTime: true,
       fontSize: 14,
       fontWeight: 'bold',
-      separator: 'solid'
+      separator: 'dotted'
     }
   });
   const [menuItems, setMenuItems] = useState(INITIAL_MENU_ITEMS);
