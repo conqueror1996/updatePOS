@@ -18,8 +18,6 @@ export class EscPosGenerator {
       INIT: new Uint8Array([0x1B, 0x40]),
       BOLD_ON: new Uint8Array([0x1B, 0x45, 1]),
       BOLD_OFF: new Uint8Array([0x1B, 0x45, 0]),
-      DOUBLE_STRIKE_ON: new Uint8Array([0x1B, 0x47, 1]), // Extra thickness
-      DOUBLE_STRIKE_OFF: new Uint8Array([0x1B, 0x47, 0]),
       ALIGN_LEFT: new Uint8Array([0x1B, 0x61, 0]),
       ALIGN_CENTER: new Uint8Array([0x1B, 0x61, 1]),
       ALIGN_RIGHT: new Uint8Array([0x1B, 0x61, 2]),
@@ -60,9 +58,7 @@ export class EscPosGenerator {
     if (header?.showStoreName) {
       cmds.push(this.CMD.FONT_LARGE);
       cmds.push(this.CMD.BOLD_ON);
-      cmds.push(this.CMD.DOUBLE_STRIKE_ON);
       cmds.push(this.t((header.storeName || 'Store Name') + "\n"));
-      cmds.push(this.CMD.DOUBLE_STRIKE_OFF);
       cmds.push(this.CMD.BOLD_OFF);
       cmds.push(this.CMD.FONT_NORMAL);
     }
@@ -80,6 +76,12 @@ export class EscPosGenerator {
     const dateStr = new Date(orderData.timestamp || Date.now()).toLocaleDateString('en-GB');
     const timeStr = new Date(orderData.timestamp || Date.now()).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     
+    const twoCol = (left, right, rightBold = false) => {
+      const spacing = charLimit - (left?.length || 0) - (right?.length || 0);
+      let r = (left || "") + " ".repeat(Math.max(1, spacing));
+      return r;
+    };
+
     // Row 1: Date | Dine In: Table
     const row1L = `Date: ${dateStr}`;
     const row1R = `${orderData.orderType || 'Dine In'}: ${orderData.tableName || orderData.tableId || 'N/A'}`;
@@ -114,10 +116,7 @@ export class EscPosGenerator {
       let name = item.name;
       let firstLine = name.substring(0, itemW).padEnd(itemW);
       let row = firstLine + item.qty.toString().padStart(qtyW) + item.price.toFixed(2).padStart(priceW) + (item.qty * item.price).toFixed(2).padStart(amountW);
-      
-      cmds.push(this.CMD.BOLD_ON);
       cmds.push(this.t(row + "\n"));
-      cmds.push(this.CMD.BOLD_OFF);
       
       if (name.length > itemW) {
         cmds.push(this.t(name.substring(itemW) + "\n"));
@@ -130,38 +129,41 @@ export class EscPosGenerator {
     const subTotalVal = (orderData.subtotal || 0).toFixed(2);
     const qtyLabel = `Total Qty: ${totalQty}`;
     
+    // Line 1: [Total Qty: 2] [Sub] [Value]
     const qLabelW = 20;
     const subLabel = "Sub";
     const subSpacing = charLimit - qLabelW - subTotalVal.length;
     cmds.push(this.t(qtyLabel.padEnd(qLabelW) + subLabel.padEnd(subSpacing) + subTotalVal + "\n"));
+    
+    // Line 2: [ ] [Total]
     cmds.push(this.t(" ".repeat(qLabelW) + "Total\n"));
 
-    if (orderData.serviceCharge && orderData.serviceCharge > 0) {
+    if (orderData.serviceCharge > 0) {
         const scLabel = "Service Charge";
         const scStr = orderData.serviceCharge.toFixed(2);
         const scSpacing = charLimit - qLabelW - scStr.length;
         cmds.push(this.t(scLabel.padStart(qLabelW + scLabel.length - qLabelW) + " ".repeat(subSpacing) + scStr + "\n"));
-        cmds.push(this.t(" ".repeat(qLabelW - 8) + "(Optional)\n"));
+        cmds.push(this.t(" ".repeat(qLabelW - 8) + "(Optional)\n")); // Slightly indented under Service Charge
     }
 
     cmds.push(this.line('-'));
 
-    if (orderData.roundOff && orderData.roundOff !== 0) {
+    if (orderData.roundOff !== 0) {
       const roLabel = "Round off";
       const roStr = (orderData.roundOff > 0 ? "+" : "") + orderData.roundOff.toFixed(2);
+      const roSpacing = charLimit - roLabel.length - roStr.length;
       cmds.push(this.t(roLabel.padStart(charLimit - roStr.length) + roStr + "\n"));
     }
 
     // Grand Total
     cmds.push(this.CMD.FONT_LARGE);
     cmds.push(this.CMD.BOLD_ON);
-    cmds.push(this.CMD.DOUBLE_STRIKE_ON);
     const gtLabel = "GRAND TOTAL";
     const gtAmount = `₹${(orderData.grandTotal || 0).toFixed(2)}`;
+    // Note: FONT_LARGE reduces charLimit by 2
     const largeCharLimit = Math.floor(charLimit / 2);
     const gtSpacing = largeCharLimit - gtLabel.length - gtAmount.length;
     cmds.push(this.t(gtLabel + " ".repeat(Math.max(1, gtSpacing)) + gtAmount + "\n"));
-    cmds.push(this.CMD.DOUBLE_STRIKE_OFF);
     cmds.push(this.CMD.BOLD_OFF);
     cmds.push(this.CMD.FONT_NORMAL);
     cmds.push(this.line('-'));
@@ -182,54 +184,45 @@ export class EscPosGenerator {
     const charLimit = this.charLimit;
 
     cmds.push(this.CMD.ALIGN_CENTER);
-    
-    // Station Title (if any) - extra large for impact
-    if (stationName) {
-        cmds.push(this.CMD.FONT_LARGE);
-        cmds.push(this.CMD.BOLD_ON);
-        cmds.push(this.CMD.DOUBLE_STRIKE_ON);
-        cmds.push(this.t(stationName.toUpperCase() + "\n"));
-        cmds.push(this.CMD.DOUBLE_STRIKE_OFF);
-        cmds.push(this.CMD.BOLD_OFF);
-        cmds.push(this.CMD.FONT_NORMAL);
-    }
+    cmds.push(this.CMD.FONT_LARGE);
+    cmds.push(this.CMD.BOLD_ON);
+    const stationTitle = (stationName || "Running Table").toUpperCase();
+    cmds.push(this.t(stationTitle + "\n"));
+    cmds.push(this.CMD.FONT_NORMAL);
     
     const dateStr = new Date().toLocaleDateString('en-GB');
     const timeStr = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
     cmds.push(this.t(`${dateStr} ${timeStr}\n`));
-    cmds.push(this.t(`KOT - ${orderData.kotNo || '0'}\n`));
+    
+    cmds.push(this.t(`KOT - ${orderData.kotNo || orderData.id || '000'}\n`));
     
     cmds.push(this.CMD.BOLD_ON);
+    cmds.push(this.CMD.FONT_LARGE);
     cmds.push(this.t(`${orderData.orderType || 'Dine In'}\n`));
-    cmds.push(this.t(`Table No: ${orderData.tableName || orderData.tableId || 'N/A'}\n`));
+    cmds.push(this.t(`TABLE: ${orderData.tableName || orderData.tableId || 'N/A'}\n`));
+    cmds.push(this.CMD.FONT_NORMAL);
     cmds.push(this.CMD.BOLD_OFF);
 
-    cmds.push(this.line('.')); // Dotted separator matches the user's photo
+    cmds.push(this.line('.')); // Dotted separator
 
     cmds.push(this.CMD.ALIGN_LEFT);
     const qtyW = 5;
-    const noteW = 12; // Adjusted for 3-column layout
+    const noteW = Math.floor((charLimit - qtyW) * 0.4);
     const itemW = charLimit - qtyW - noteW;
 
     let header = "Item".padEnd(itemW) + "Special Note".padEnd(noteW) + "Qty".padStart(qtyW);
     cmds.push(this.t(header + "\n"));
 
     (orderData.items || orderData.cart || []).forEach(item => {
-      let namePart = item.name.substring(0, itemW - 1).padEnd(itemW);
-      let notePart = (item.note || "--").substring(0, noteW - 1).padEnd(noteW);
-      let qtyPart = item.qty.toString().padStart(qtyW);
-      
       cmds.push(this.CMD.BOLD_ON);
-      cmds.push(this.CMD.DOUBLE_STRIKE_ON);
-      cmds.push(this.t(namePart));
-      cmds.push(this.CMD.DOUBLE_STRIKE_OFF);
+      // Item Name in Bold
+      cmds.push(this.t(`${item.name}\n`));
+      
+      // Details row
       cmds.push(this.CMD.BOLD_OFF);
-
-      cmds.push(this.t(notePart + qtyPart + "\n"));
-
-      if (item.name.length >= itemW) {
-        cmds.push(this.t(item.name.substring(itemW - 1) + "\n"));
-      }
+      let notePart = (item.note || "--").substring(0, noteW - 1).padEnd(noteW);
+      let qtyPart = ` x ${item.qty}`.padStart(qtyW + 5); 
+      cmds.push(this.t(" ".repeat(itemW) + notePart + qtyPart + "\n"));
     });
 
     cmds.push(this.line('.'));
